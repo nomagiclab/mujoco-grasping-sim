@@ -1,0 +1,58 @@
+<mujoco>
+
+   <option gravity="0 0 -1" />
+
+   <worldbody>
+      <geom type="plane" size="10 10 0.1" rgba=".6 .6 .6 1"/>
+
+      <body pos="0 0 0.1" euler="0 0 0">
+         <joint type = "free"/>
+         <geom type="box" size=".1 .1 .1" rgba="0.7 0 0 1"/>
+      </body>
+
+      <body pos="0 0 0.1" euler="0 0 0">
+         <joint name="ax1" type='slide' axis='0 0 1' limited='true' range='-0.5 0.5'/>
+         <joint name="ax2" type='slide' axis='0 1 0'/>
+         <joint name="ax3" type='slide' axis='1 0 0' limited='true' range='-0.5 0.5'/>
+         <geom type="sphere" size=".1" rgba="0 0.2 0.5 1"/>
+         <light pos="0 0 3" dir="0 0 -1"/>
+      </body>
+
+      <body pos="0.7 0.5 0.1" euler="0 0 0">
+         <joint type = "free"/>
+         <geom type="sphere" size=".1" rgba="0 0.2 0.5 1"/>
+      </body>
+
+      <body pos="-0.7 0.2 .3" euler="0 0 90">
+         <joint type = "free"/>
+         <geom type="box" size=".1 .2 .3" rgba="0.6 0.6 0 1"/>
+      </body>
+
+      <body pos="-0.5 -1.2 .3" euler="0 0 0">
+         <joint type = "free"/>
+         <geom type="sphere" size=".3" rgba="0 .4 .4 1"/>
+      </body>
+
+      <body pos="0 .7 .3" euler="0 0 30">
+         <joint type = "free"/>
+         <geom type="box" size=".1 .2 .3" rgba="0 .5 .5 1"/>
+      </body>
+
+      <body pos="0 -.6 .06" euler="0 0 0">
+         <joint type = "free"/>
+         <geom type="sphere" size=".06" rgba=".3 .15 .5 1"/>
+      </body>
+
+      <body pos=".7 -.6 .2" euler="0 0 0">
+         <joint type = "free"/>
+         <geom type="box" size=".1 .1 .2" rgba=".3 .5 .2 1"/>
+      </body>
+
+   </worldbody>
+
+       <actuator>
+        <position name="ax1" joint="ax1" kp="100" />
+        <position name="ax2" joint="ax2" kp="100" />
+        <position name="ax3" joint="ax3" kp="100" />
+    </actuator>
+</mujoco>
