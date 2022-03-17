@@ -14,7 +14,7 @@ CC = gcc
 #LIBS = ../../bin/glfw3.lib  ../../bin/mujoco200.lib
 #CC = cl
 
-ROOT = gripper
+ROOT = mujoco-grasping-sim
 
 all:
 	$(CC) $(COMMON) main.c $(LIBS) -o ../../bin/$(ROOT)
