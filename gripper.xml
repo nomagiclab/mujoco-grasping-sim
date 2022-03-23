@@ -5,6 +5,8 @@
 
    <option gravity="0 0 -2" />
 
+   <include file="blocks.xml"/>   
+
    <worldbody>
       <light diffuse=".5 .5 .5" pos="0 0 3" dir="0 0 -1"/>
 
@@ -24,42 +26,7 @@
             <joint type="slide" name="arm2"/>
             <geom type="box" size=".2 .2 .05" rgba="255 0 255 1" mass="100"/>
          </body>
-      </body>
-
-      <body pos="0 0 0.1" euler="0 0 0">
-         <joint type = "free"/>
-         <geom type="box" size=".1 .1 .1" rgba="0.7 0 0 1"/>
-      </body>
-
-      <body pos="0.7 0.5 0.1" euler="0 0 0">
-         <joint type = "free"/>
-         <geom type="sphere" size=".1" rgba="0 0.2 0.5 1"/>
-      </body>
-
-      <body name="yellow_box" pos="-0.7 0.2 .3" euler="0 0 90">
-         <joint type = "free"/>
-         <geom type="box" size=".1 .2 .3" rgba="0.6 0.6 0 1"/>
-      </body>
-
-      <body name="big_ball" pos="-0.5 -1.2 .3" euler="0 0 0">
-         <joint type = "free"/>
-         <geom type="sphere" size=".3" rgba="0 .4 .4 1"/>
-      </body>
-
-      <body name="blue_box" pos="0 .7 .3" euler="0 0 30">
-         <joint type = "free"/>
-         <geom type="box" size=".1 .2 .3" rgba="0 .5 .5 1"/>
-      </body>
-
-      <body pos="0 -.6 .06" euler="0 0 0">
-         <joint type = "free"/>
-         <geom type="sphere" size=".06" rgba=".3 .15 .5 1"/>
-      </body>
-
-      <body pos=".7 -.6 .2" euler="0 0 0">
-         <joint type = "free"/>
-         <geom type="box" size=".1 .1 .2" rgba=".3 .5 .2 1"/>
-      </body>
+      </body> 
 
    </worldbody>
    <actuator>
