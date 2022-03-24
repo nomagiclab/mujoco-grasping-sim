@@ -44,6 +44,8 @@ mjvOption opt;                      // visualization options
 mjvScene scn;                       // abstract scene
 mjrContext con;                     // custom GPU context
 
+mjvCamera gripper_cam;
+
 // mouse interaction
 bool button_left = false;
 bool button_middle = false;
@@ -121,29 +123,6 @@ void scroll(GLFWwindow *window, double xoffset, double yoffset) {
     mjv_moveCamera(m, mjMOUSE_ZOOM, 0, -0.05 * yoffset, &scn, &cam);
 }
 
-/******************************/
-void set_torque_control(const mjModel *m, int actuator_no, int flag) {
-    if (flag == 0)
-        m->actuator_gainprm[10 * actuator_no + 0] = 0;
-    else
-        m->actuator_gainprm[10 * actuator_no + 0] = 1;
-}
-/******************************/
-
-
-/******************************/
-void set_position_servo(const mjModel *m, int actuator_no, double kp) {
-    m->actuator_gainprm[10 * actuator_no + 0] = kp;
-    m->actuator_biasprm[10 * actuator_no + 1] = -kp;
-}
-/******************************/
-
-/******************************/
-void set_velocity_servo(const mjModel *m, int actuator_no, double kv) {
-    m->actuator_gainprm[10 * actuator_no + 0] = kv;
-    m->actuator_biasprm[10 * actuator_no + 2] = -kv;
-}
-/******************************/
 
 //**************************
 void init_controller(const mjModel *m, mjData *d) {
@@ -259,6 +238,7 @@ int main(int argc, const char **argv) {
     glfwSetScrollCallback(window, scroll);
 
     double arr_view[] = {89.608063, -11.588379, 5, 0.000000, 0.000000, 1.000000};
+    //double arr_view[] = {137.179492, -89.000000, 5.482204, 0.000000, 0.000000, 1.000000};
     cam.azimuth = arr_view[0];
     cam.elevation = arr_view[1];
     cam.distance = arr_view[2];
@@ -271,6 +251,10 @@ int main(int argc, const char **argv) {
     init_controller(m, d);
 
     int photo_counter = 0;
+
+    gripper_cam.type = mjCAMERA_FIXED;
+    gripper_cam.fixedcamid = 0;
+    gripper_cam.trackbodyid = -1;
 
     // use the first while condition if you want to simulate for a period.
     while (!glfwWindowShouldClose(window)) {
@@ -292,11 +276,11 @@ int main(int argc, const char **argv) {
         glfwGetFramebufferSize(window, &viewport.width, &viewport.height);
 
         // update scene and render
-        mjv_updateScene(m, d, &opt, NULL, &cam, mjCAT_ALL, &scn);
+        mjv_updateScene(m, d, &opt, NULL, &gripper_cam, mjCAT_ALL, &scn);
         mjr_render(viewport, &scn, &con);
         //printf("{%f, %f, %f, %f, %f, %f};\n",cam.azimuth,cam.elevation, cam.distance,cam.lookat[0],cam.lookat[1],cam.lookat[2]);
 
-        if (photo_counter < 1) {
+        if (photo_counter == 0) {
             make_tga_image(viewport);
             photo_counter++;
         }
