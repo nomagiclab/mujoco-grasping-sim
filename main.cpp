@@ -276,11 +276,13 @@ int main(int argc, const char **argv) {
         glfwGetFramebufferSize(window, &viewport.width, &viewport.height);
 
         // update scene and render
-        mjv_updateScene(m, d, &opt, NULL, &gripper_cam, mjCAT_ALL, &scn);
-        mjr_render(viewport, &scn, &con);
+        // mjv_updateScene(m, d, &opt, NULL, &gripper_cam, mjCAT_ALL, &scn);
+        //mjr_render(viewport, &scn, &con);
         //printf("{%f, %f, %f, %f, %f, %f};\n",cam.azimuth,cam.elevation, cam.distance,cam.lookat[0],cam.lookat[1],cam.lookat[2]);
 
-        if (photo_counter == 0) {
+        if (photo_counter < d->time) {
+            mjv_updateScene(m, d, &opt, NULL, &gripper_cam, mjCAT_ALL, &scn);
+            mjr_render(viewport, &scn, &con);
             make_tga_image(viewport);
             photo_counter++;
         }
