@@ -13,6 +13,8 @@
       <geom type="plane" size="3 3 0.1" rgba=".6 .6 .6 1"/>
 
       <body pos="0 0 5" euler="0 0 0">
+         <camera name="gripper-cam" mode="fixed"/>
+
          <joint type="slide" name="x-slide" axis="1 0 0"/>
          <joint type="slide" name="y-slide" axis="0 1 0"/>
          <joint type="slide" name="z-slide" axis="0 0 1"/> 
