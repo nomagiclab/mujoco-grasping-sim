@@ -16,6 +16,7 @@
          <joint type="slide" name="x-slide" axis="1 0 0"/>
          <joint type="slide" name="y-slide" axis="0 1 0"/>
          <joint type="slide" name="z-slide" axis="0 0 1"/> 
+         <joint type="hinge" name="rotor" axis="0 0 1"/> 
          <geom type="sphere" size=".05" rgba="255 0 0 1" mass="10"/>
 
          <body pos="-0.5 0 -2.5" euler="0 90 0">
@@ -36,12 +37,14 @@
       <position name="z-pos" joint="z-slide" kp="1000" ctrllimited="true" ctrlrange="-2 2"/>
       <position name="armp1" joint="arm1" kp="2000" ctrllimited="true" ctrlrange="-0.5 0.5"/>
       <position name="armp2" joint="arm2" kp="2000" ctrllimited="true" ctrlrange="-0.5 0.5"/>
+      <position name="rotor-pos" joint="rotor" kp="1000" ctrllimited="true" ctrlrange="-3.14 3.14"/>
       
       <velocity name="x-vel" joint="x-slide" kv="1000"/>
       <velocity name="y-vel" joint="y-slide" kv="1000"/>
       <velocity name="z-vel" joint="z-slide" kv="1000"/>
       <velocity name="armv1" joint="arm1" kv="2000"/>
       <velocity name="armv2" joint="arm2" kv="2000"/>
+      <velocity name="rotor-vel" joint="rotor" kv="1000"/>
 
    </actuator>
 </mujoco>

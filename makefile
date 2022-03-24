@@ -7,7 +7,7 @@
 #LINUX
 COMMON=-O2 -I../../include -L../../bin -mavx -pthread -Wl,-rpath,'$$ORIGIN'
 LIBS = -lmujoco200 -lGL -lm -lglew ../../bin/libglfw.so.3
-CC = gcc
+CC = g++
 
 #WINDOWS
 #COMMON=/O2 /MT /EHsc /arch:AVX /I../../include /Fe../../bin/
@@ -17,10 +17,10 @@ CC = gcc
 ROOT = mujoco-grasping-sim
 
 all:
-	$(CC) $(COMMON) main.c $(LIBS) -o ../../bin/$(ROOT)
+	$(CC) $(COMMON) main.cpp $(LIBS) -o ../../bin/$(ROOT)
 
 main.o:
-	$(CC) $(COMMON) -c main.c
+	$(CC) $(COMMON) -c main.cpp
 
 clean:
 	rm *.o ../../bin/$(ROOT)
