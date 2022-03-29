@@ -8,6 +8,9 @@
 #include "string.h"
 
 #include <fstream>
+#include <algorithm>
+
+#include <FreeImage.h>
 
 //simulation end time
 double simend = 50;
@@ -171,14 +174,13 @@ void mycontroller(const mjModel *m, mjData *d) {
 }
 
 void make_tga_image(mjrRect viewport) {
-    unsigned char *buffer = new unsigned char[WIDTH * HEIGHT * 3];
+    int buffer_size = WIDTH * HEIGHT * 3;
+    unsigned char *buffer = new unsigned char[buffer_size];
     mjr_readPixels(buffer, NULL, viewport, &con);
+    std::reverse(buffer, buffer + buffer_size);
 
-    FILE *out = fopen("../myproject/mujoco-grasping-sim/photo.tga", "w");
-    short TGAhead[] = {0, 2, 0, 0, 0, 0, WIDTH, HEIGHT, 24};
-    fwrite(&TGAhead, sizeof(TGAhead), 1, out);
-    fwrite(buffer, 3 * WIDTH * HEIGHT, 1, out);
-    fclose(out);
+    FIBITMAP* image = FreeImage_ConvertFromRawBits(buffer, WIDTH, HEIGHT, 3 * WIDTH, 24, 0x0000FF, 0xFF0000, 0x00FF00, true);
+    FreeImage_Save(FIF_PNG, image, "../myproject/mujoco-grasping-sim/photo.png", 0);
 
     delete[] buffer;
 }
@@ -280,7 +282,7 @@ int main(int argc, const char **argv) {
         //mjr_render(viewport, &scn, &con);
         //printf("{%f, %f, %f, %f, %f, %f};\n",cam.azimuth,cam.elevation, cam.distance,cam.lookat[0],cam.lookat[1],cam.lookat[2]);
 
-        if (photo_counter < d->time) {
+        if (photo_counter < 1) {
             mjv_updateScene(m, d, &opt, NULL, &gripper_cam, mjCAT_ALL, &scn);
             mjr_render(viewport, &scn, &con);
             make_tga_image(viewport);
