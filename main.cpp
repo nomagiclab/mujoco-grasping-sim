@@ -177,9 +177,14 @@ void make_tga_image(mjrRect viewport) {
     int buffer_size = WIDTH * HEIGHT * 3;
     unsigned char *buffer = new unsigned char[buffer_size];
     mjr_readPixels(buffer, NULL, viewport, &con);
-    std::reverse(buffer, buffer + buffer_size);
+    unsigned char tmp;
+    for (int x = 0; x < HEIGHT; x++) {
+        for (int y = 0; y < WIDTH; y++) {
+            std::swap(buffer[x*WIDTH*3 + y*3], buffer[x*WIDTH*3 + 2 + y*3]);
+        }
+    }
 
-    FIBITMAP* image = FreeImage_ConvertFromRawBits(buffer, WIDTH, HEIGHT, 3 * WIDTH, 24, 0x0000FF, 0xFF0000, 0x00FF00, true);
+    FIBITMAP* image = FreeImage_ConvertFromRawBits(buffer, WIDTH, HEIGHT, 3 * WIDTH, 24, 0x0000FF, 0xFF0000, 0x00FF00, false);
     FreeImage_Save(FIF_PNG, image, "../myproject/mujoco-grasping-sim/photo.png", 0);
 
     delete[] buffer;
