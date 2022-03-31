@@ -9,9 +9,6 @@
 #include "mujoco.h"
 #include "glfw3.h"
 
-#include <fstream>
-#include <algorithm>
-
 #include <FreeImage.h>
 
 using namespace cv;
