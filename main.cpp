@@ -1,6 +1,11 @@
 #include<stdbool.h>
 #include <math.h>
 
+#include <opencv2/imgcodecs.hpp>
+#include <opencv2/highgui.hpp>
+#include <opencv2/imgproc.hpp>
+#include <iostream>
+
 #include "mujoco.h"
 #include "glfw3.h"
 #include "stdio.h"
@@ -11,6 +16,9 @@
 #include <algorithm>
 
 #include <FreeImage.h>
+
+using namespace cv;
+using namespace std;
 
 //simulation end time
 double simend = 50;
@@ -172,6 +180,90 @@ void mycontroller(const mjModel *m, mjData *d) {
         d->ctrl[2] = 0;
     }
 }
+ 
+//////////////////// Color and Coutour Detection  //////////////////////
+// Takes path to existing .png file and returns all relative positions 
+// of element's centers. 
+// 
+// Input  : path to file.
+// Output : list of (x, y) pairs.
+vector<pair <int, int> > getContours(string path) {
+    Mat img;
+	try {
+        img = imread(path);
+    } catch (const Exception& e) {
+        vector<pair <int, int>> empty {};
+        return empty;
+    }
+    Mat imgGray, imgBlur, imgCanny, imgDil, imgErode;
+ 
+	// Preprocessing
+	cvtColor(img, imgGray, COLOR_BGR2GRAY);
+	GaussianBlur(imgGray, imgBlur, Size(3, 3), 3, 0);
+	Canny(imgBlur, imgCanny, 25, 75);
+	Mat kernel = getStructuringElement(MORPH_RECT, Size(3, 3));
+	dilate(imgCanny, imgDil, kernel);
+
+	// Main function that finds contours.
+	vector<vector<Point>> contours;
+	vector<Vec4i> hierarchy;
+	findContours(imgDil, contours, hierarchy, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
+	//drawContours(img, contours, -1, Scalar(255, 0, 255), 2);
+	
+	vector<pair<int, int> > result;
+
+	vector< vector<Point> > conPoly(contours.size());
+	vector< Rect> boundRect(contours.size());
+	
+	for (int i = 0; i < contours.size(); i++)
+	{
+		int area = contourArea(contours[i]);
+		string objectType;
+
+		// cout << area << endl;
+		if (area > 1000) 
+		{
+			float peri = arcLength(contours[i], true);
+			approxPolyDP(contours[i], conPoly[i], 0.02 * peri, true);
+			// cout << conPoly[i].size() << endl;
+			boundRect[i] = boundingRect(conPoly[i]);
+		
+			int objCor = (int)conPoly[i].size();
+
+			// Tries to guess which polygon it is.
+			if (objCor == 3) { objectType = "Triangle"; }
+			else if (objCor == 4)
+			{ 
+				float aspRatio = (float)boundRect[i].width / (float)boundRect[i].height;
+				if (aspRatio> 0.95 && aspRatio< 1.05) 
+					objectType = "Square"; 
+				else 
+					objectType = "Rect";
+			}
+			else if (objCor < 7) 
+				objectType = std::to_string(objCor) + " corners";
+			else 
+				objectType = "Circle?"; 
+ 
+			// Draws back found contours on the image.
+			drawContours(img, conPoly, i, Scalar(255, 0, 255), 2);
+			// Draws area on which polygon was found.
+			rectangle(img, boundRect[i].tl(), boundRect[i].br(), Scalar(0, 255, 0), 5);
+			
+			Point center = {(boundRect[i].tl().x + boundRect[i].br().x) / 2,
+							(boundRect[i].tl().y + boundRect[i].br().y) / 2};
+			result.push_back({center.x, center.y});
+			
+			// Puts dot on center and objectType on top of polygon.
+			putText(img, ".", center, FONT_HERSHEY_PLAIN, 1, Scalar(0, 100, 255), 2);
+			putText(img, objectType, { boundRect[i].x,boundRect[i].y - 5 }, FONT_HERSHEY_PLAIN,1, Scalar(0, 69, 255), 2);
+		}
+	}
+
+	// imshow("Image with contours", img);
+	return result;
+}
+ 
 
 void make_tga_image(mjrRect viewport) {
     int buffer_size = WIDTH * HEIGHT * 3;
@@ -287,10 +379,20 @@ int main(int argc, const char **argv) {
         //mjr_render(viewport, &scn, &con);
         //printf("{%f, %f, %f, %f, %f, %f};\n",cam.azimuth,cam.elevation, cam.distance,cam.lookat[0],cam.lookat[1],cam.lookat[2]);
 
+        mjv_updateScene(m, d, &opt, NULL, &gripper_cam, mjCAT_ALL, &scn);
+        mjr_render(viewport, &scn, &con);
         if (photo_counter < 1) {
-            mjv_updateScene(m, d, &opt, NULL, &gripper_cam, mjCAT_ALL, &scn);
-            mjr_render(viewport, &scn, &con);
+            // TODO : Viewpoint should be much higher up.
             make_tga_image(viewport);
+            auto vec = getContours("../myproject/mujoco-grasping-sim/photo.png");
+            
+            // TODO :
+            // Choose box to pickup.
+            // Move grapple to x, y.
+            // Perform pickup.
+            // Move grapple to 0, 0.
+            // Repeat.
+            
             photo_counter++;
         }
 
