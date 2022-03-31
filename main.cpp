@@ -1,16 +1,13 @@
-#include<stdbool.h>
-#include <math.h>
+#include <fstream>
+#include <algorithm>
+#include <iostream>
 
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
-#include <iostream>
 
 #include "mujoco.h"
 #include "glfw3.h"
-#include "stdio.h"
-#include "stdlib.h"
-#include "string.h"
 
 #include <fstream>
 #include <algorithm>
@@ -265,11 +262,11 @@ vector<pair <int, int> > getContours(string path) {
 }
  
 
-void make_tga_image(mjrRect viewport) {
+void make_png_image(mjrRect viewport) {
     int buffer_size = WIDTH * HEIGHT * 3;
     unsigned char *buffer = new unsigned char[buffer_size];
     mjr_readPixels(buffer, NULL, viewport, &con);
-    unsigned char tmp;
+
     for (int x = 0; x < HEIGHT; x++) {
         for (int y = 0; y < WIDTH; y++) {
             std::swap(buffer[x*WIDTH*3 + y*3], buffer[x*WIDTH*3 + 2 + y*3]);
@@ -283,8 +280,6 @@ void make_tga_image(mjrRect viewport) {
 }
 
 
-//************************
-// main function
 int main(int argc, const char **argv) {
 
     // activate software
@@ -375,15 +370,12 @@ int main(int argc, const char **argv) {
         glfwGetFramebufferSize(window, &viewport.width, &viewport.height);
 
         // update scene and render
-        // mjv_updateScene(m, d, &opt, NULL, &gripper_cam, mjCAT_ALL, &scn);
-        //mjr_render(viewport, &scn, &con);
-        //printf("{%f, %f, %f, %f, %f, %f};\n",cam.azimuth,cam.elevation, cam.distance,cam.lookat[0],cam.lookat[1],cam.lookat[2]);
-
         mjv_updateScene(m, d, &opt, NULL, &gripper_cam, mjCAT_ALL, &scn);
         mjr_render(viewport, &scn, &con);
+
         if (photo_counter < 1) {
             // TODO : Viewpoint should be much higher up.
-            make_tga_image(viewport);
+            make_png_image(viewport);
             auto vec = getContours("../myproject/mujoco-grasping-sim/photo.png");
             
             // TODO :
