@@ -1,0 +1,26 @@
+<mujoco>
+    <asset>
+        <texture name="texsponge" type="2d" file="sponge.png"/>  
+        <material name="matsponge" texture="texsponge" specular="0.3"/>        
+    </asset>
+
+    <option solver="CG" tolerance="1e-6"/>
+
+    <size nconmax="500" njmax="5000" nstack="5000000"/>
+
+    <worldbody>
+        <body name="big_ball" pos="-0.5 -1.2 .3" euler="0 0 0">
+            <joint type = "free"/>
+            <geom type="sphere" size=".3" rgba="0 .4 .4 1"/>
+        </body>
+
+        <body name="container" pos="5 5 .3">
+            <joint type = "free"/>
+            <geom type="box" size="1 .1 .3" rgba="1 0.4 0 1" pos="0 1.1 0"/>
+            <geom type="box" size=".1 1 .3" rgba="1 0.4 0 1" pos="1.1 0 0"/>
+            <geom type="box" size=".1 1 .3" rgba="1 0.4 0 1" pos="-1.1 0 0"/>
+            <geom type="box" size="1 .1 .3" rgba="1 0.4 0 1" pos="0 -1.1 0"/>
+        </body>
+
+    </worldbody>
+</mujoco>
