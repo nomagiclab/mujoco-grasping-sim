@@ -5,15 +5,17 @@
 
    <option gravity="0 0 -2" />
 
-   <include file="blocks.xml"/>   
+   <include file="blocks.xml"/>
 
    <worldbody>
       <light diffuse=".5 .5 .5" pos="0 0 3" dir="0 0 -1"/>
 
-      <geom type="plane" size="3 3 0.1" rgba=".6 .6 .6 1"/>
+      <geom type="plane" size="10 10 0.1" rgba=".6 .6 .6 1"/>
 
       <body pos="0 0 5" euler="0 0 0">
-         <camera name="gripper-cam" mode="fixed" pos="0 0 -2.5"/>
+         <body name="gripper-cam-body">
+            <camera mode="fixed" name="gripper-cam"/>
+         </body>
 
          <joint type="slide" name="x-slide" axis="1 0 0"/>
          <joint type="slide" name="y-slide" axis="0 1 0"/>
@@ -21,22 +23,22 @@
          <joint type="hinge" name="rotor" axis="0 0 1"/> 
          <geom type="sphere" size=".05" rgba="255 0 0 1" mass="10"/>
 
-         <body pos="-0.5 0 -2.5" euler="0 90 0">
+         <body pos="-0.5 0 -1" euler="0 90 0">
             <joint type="slide" name="arm1"/>
             <geom type="box" size=".2 .2 .05" rgba="255 128 0 1" mass="100"/>
          </body>
-         <body pos="0.5 0 -2.5" euler="0 -90 0">
+         <body pos="0.5 0 -1" euler="0 -90 0">
             <joint type="slide" name="arm2"/>
-            <geom type="box" size=".2 .2 .05" rgba="255 0 255 1" mass="100"/>
+            <geom type="box" size=".2 .2 .05" rgba="255 128 0 1" mass="100"/>
          </body>
       </body> 
 
    </worldbody>
    <actuator>
 
-      <position name="x-pos" joint="x-slide" kp="1000" ctrllimited="true" ctrlrange="-2 2"/>
-      <position name="y-pos" joint="y-slide" kp="1000" ctrllimited="true" ctrlrange="-2 2"/>     
-      <position name="z-pos" joint="z-slide" kp="1000" ctrllimited="true" ctrlrange="-2 2"/>
+      <position name="x-pos" joint="x-slide" kp="1000" ctrllimited="true" ctrlrange="-5 5"/>
+      <position name="y-pos" joint="y-slide" kp="1000" ctrllimited="true" ctrlrange="-5 5"/>
+      <position name="z-pos" joint="z-slide" kp="1000" ctrllimited="true" ctrlrange="-3.5 1"/>
       <position name="armp1" joint="arm1" kp="2000" ctrllimited="true" ctrlrange="-0.5 0.5"/>
       <position name="armp2" joint="arm2" kp="2000" ctrllimited="true" ctrlrange="-0.5 0.5"/>
       <position name="rotor-pos" joint="rotor" kp="1000" ctrllimited="true" ctrlrange="-3.14 3.14"/>
