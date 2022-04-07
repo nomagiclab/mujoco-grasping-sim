@@ -246,10 +246,6 @@ void simulate(mjtNum sim_time, const mjModel *m, mjData *d, const mjvOption *opt
 void move_vertical_to_block(const mjModel *m, mjData *d, const mjvOption *opt, mjvScene *scn, const mjrContext *con,
                             GLFWwindow *window, mjvCamera *gripper_cam, const mjrRect viewport, vector<pair<int, int>> centers) {
 
-    mj_step(m, d);
-    glfwSwapBuffers(window);
-    glfwPollEvents();
-
     pair<int, int> closest_pixels = get_closest_pixels(centers);
 
     tuple<mjtNum, mjtNum, mjtNum> cam_coords = get_gripper_cam_coords(m, d);
