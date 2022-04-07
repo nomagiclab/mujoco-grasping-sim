@@ -22,6 +22,7 @@ const char xmlfile[] = "gripper.xml";
 const int WIDTH = 1000;
 const int HEIGHT = 1000;
 
+#define debug false
 
 //////////////////// Color and Coutour Detection  //////////////////////
 // Takes path to existing .png file and returns all relative positions 
@@ -71,7 +72,8 @@ vector<pair<int, int>> getContours(const string &png_path) {
             int objCor = (int) conPoly[i].size();
 
             // Tries to guess which polygon it is.
-            if (objCor == 3) { objectType = "Triangle"; }
+            if (objCor == 3) 
+                objectType = "Triangle";
             else if (objCor == 4) {
                 float aspRatio = (float) boundRect[i].width / (float) boundRect[i].height;
                 if (aspRatio > 0.95 && aspRatio < 1.05)
@@ -99,22 +101,48 @@ vector<pair<int, int>> getContours(const string &png_path) {
         }
     }
 
-    cout << "center points" << endl;
-    for (pair<int, int> &pair: result) {
-        cout << pair.first << " " << pair.second << endl;
+    if (debug) {
+        cout << "center points" << endl;
+        for (pair<int, int> &pair: result) {
+            cout << pair.first << " " << pair.second << endl;
+        }
+        namedWindow("Image with contours", WINDOW_AUTOSIZE);
+        imshow("Image with contours", img);
+        waitKey();
     }
-
-    namedWindow("Image with contours", WINDOW_AUTOSIZE);
-    imshow("Image with contours", img);
-    waitKey();
 
     return result;
 }
 
 
-void make_png_image(const mjrRect viewport, const mjrContext *con) {
+// Searches element id through all elements in the model.
+// Input : all models object, type of element, name of element in the xml
+// Output : Element's id.
+// Throws error when element is not found within the xml.
+int get_id(const mjModel *m, int object, const char* name) {
+    int object_id = mj_name2id(m, object, name);
+    if (object_id == -1) {
+        throw std::runtime_error("mj_name2id error");
+    }
+    return object_id;
+}
+
+
+void make_png_image(const mjModel *m, mjData *d, const mjvOption *opt, mjvScene *scn, const mjrContext *con,
+                            GLFWwindow *window, mjvCamera *gripper_cam, const mjrRect viewport) {
+    mj_step(m, d);
     int buffer_size = WIDTH * HEIGHT * 3;
     auto *buffer = new unsigned char[buffer_size];
+
+    // Set alpha of both arms to 0.
+    auto arm1 = get_id(m, mjOBJ_GEOM, "arm_left");
+    auto arm2 = get_id(m, mjOBJ_GEOM, "arm_right");
+    m->geom_rgba[4*arm1 + 3] = 0;
+    m->geom_rgba[4*arm2 + 3] = 0;
+    mjv_updateScene(m, d, opt, nullptr, gripper_cam, mjCAT_ALL, scn);
+    mjr_render(viewport, scn, con);
+
+    // Takes a picture.
     mjr_readPixels(buffer, nullptr, viewport, con);
 
     // Convert from BGR to RGB.
@@ -123,30 +151,35 @@ void make_png_image(const mjrRect viewport, const mjrContext *con) {
             std::swap(buffer[x * WIDTH * 3 + y * 3], buffer[x * WIDTH * 3 + 2 + y * 3]);
         }
     }
-
     FIBITMAP *image = FreeImage_ConvertFromRawBits(buffer, WIDTH, HEIGHT, 3 * WIDTH, 24, 0x0000FF, 0xFF0000, 0x00FF00,
                                                    false);
     FreeImage_Save(FIF_PNG, image, "../myproject/mujoco-grasping-sim/photo.png", 0);
 
+    // Set alpha of both arms back to 1.
+    m->geom_rgba[4*arm1 + 3] = 1;
+    m->geom_rgba[4*arm2 + 3] = 1;
+    mjv_updateScene(m, d, opt, nullptr, gripper_cam, mjCAT_ALL, scn);
+    mjr_render(viewport, scn, con);
     delete[] buffer;
 }
 
-
 tuple<mjtNum, mjtNum, mjtNum> get_gripper_cam_coords(const mjModel *m, mjData *d) {
-    int cam_body_id = mj_name2id(m, mjOBJ_BODY, "gripper-cam-body");
-    if (cam_body_id == -1) {
-        throw std::runtime_error("mj_name2id error");
-    }
-
+    auto cam_body_id = get_id(m, mjOBJ_BODY, "gripper-cam-body");
     return make_tuple(d->xpos[3 * cam_body_id], d->xpos[3 * cam_body_id + 1], d->xpos[3 * cam_body_id + 2]);
 }
 
-int get_gripper_cam_id(const mjModel *m) {
-    int cam_id = mj_name2id(m, mjOBJ_CAMERA, "gripper-cam");
-    if (cam_id == -1) {
-        throw std::runtime_error("mj_name2id error");
-    }
-    return cam_id;
+
+// Checks whether gripper holds an object.
+// Input : All models object, data of where models are located
+// Returns true if gripper holds an object, false otherwise.
+bool gripper_holds(const mjModel *m, mjData *d) {
+    auto left_gripper_id  = get_id(m, mjOBJ_BODY, "arm1_body");
+    auto right_gripper_id = get_id(m, mjOBJ_BODY, "arm2_body");
+    // Could not find a better solution as of now.
+    if (debug)
+        cout << d->xpos[3 * left_gripper_id ] << " " << d->xpos[3 * left_gripper_id + 1 ] << " " << d->xpos[3 * left_gripper_id + 2 ] << " | " <<
+                d->xpos[3 * right_gripper_id] << " " << d->xpos[3 * right_gripper_id + 1] << " " << d->xpos[3 * right_gripper_id + 2] << "\n"; 
+    return abs(abs(d->xpos[3 * left_gripper_id]) - abs(d->xpos[3 * right_gripper_id])) > 0.02;
 }
 
 pair<mjtNum, mjtNum> get_body_coords(const mjModel *m, pair<int, int> pixel_coords,
@@ -155,7 +188,7 @@ pair<mjtNum, mjtNum> get_body_coords(const mjModel *m, pair<int, int> pixel_coor
         throw std::runtime_error("get_body_coords error: WIDTH and HEIGHT has to be the same");
     }
 
-    int cam_id = get_gripper_cam_id(m);
+    int cam_id = get_id(m, mjOBJ_CAMERA, "gripper-cam");
 
     mjtNum y_coord_diff = tan((m->cam_fovy[cam_id] / 2) * (PI / 180)) * get<2>(cam_coords) * 2;
     mjtNum x_coord_diff = y_coord_diff;
@@ -211,17 +244,13 @@ void simulate(mjtNum sim_time, const mjModel *m, mjData *d, const mjvOption *opt
 
 
 void move_vertical_to_block(const mjModel *m, mjData *d, const mjvOption *opt, mjvScene *scn, const mjrContext *con,
-                            GLFWwindow *window, mjvCamera *gripper_cam, const mjrRect viewport) {
+                            GLFWwindow *window, mjvCamera *gripper_cam, const mjrRect viewport, vector<pair<int, int>> centers) {
 
     mj_step(m, d);
-    mjv_updateScene(m, d, opt, nullptr, gripper_cam, mjCAT_ALL, scn);
-    mjr_render(viewport, scn, con);
-    make_png_image(viewport, con);
     glfwSwapBuffers(window);
     glfwPollEvents();
 
-    auto vec = getContours("../myproject/mujoco-grasping-sim/photo.png");
-    pair<int, int> closest_pixels = get_closest_pixels(vec);
+    pair<int, int> closest_pixels = get_closest_pixels(centers);
 
     tuple<mjtNum, mjtNum, mjtNum> cam_coords = get_gripper_cam_coords(m, d);
     pair<mjtNum, mjtNum> closest_coords = get_body_coords(m, closest_pixels, cam_coords);
@@ -313,23 +342,37 @@ int main() {
 
     mjvCamera gripper_cam;
     gripper_cam.type = mjCAMERA_FIXED;
-    gripper_cam.fixedcamid = get_gripper_cam_id(m);
+    gripper_cam.fixedcamid = get_id(m, mjOBJ_CAMERA, "gripper-cam");
     gripper_cam.trackbodyid = -1;
 
     // get framebuffer viewport
     mjrRect viewport = {0, 0, 0, 0};
     glfwGetFramebufferSize(window, &viewport.width, &viewport.height);
 
-    for (int i = 0; i < 10; i++) {
-        move_vertical_to_block(m, d, &opt, &scn, &con, window, &gripper_cam, viewport);
+    while (true) {
+        mj_step(m, d);
+        make_png_image(m, d, &opt, &scn, &con, window, &gripper_cam, viewport);
+        auto centers = getContours("../myproject/mujoco-grasping-sim/photo.png");
+        if (centers.size() == 0) {
+            cout << "Moved all elements, shutting down\n";
+            namedWindow("Moved all (seen) elements, shutting down\n"); // or some other indicator that robot finished.
+            waitKey();
+            break;
+        }
+
+        move_vertical_to_block(m, d, &opt, &scn, &con, window, &gripper_cam, viewport, centers);
         move_down(m, d, &opt, &scn, &con, window, &gripper_cam, viewport);
         grab(m, d, &opt, &scn, &con, window, &gripper_cam, viewport);
         move_up(m, d, &opt, &scn, &con, window, &gripper_cam, viewport);
-        move_vertical_to_container(m, d, &opt, &scn, &con, window, &gripper_cam, viewport);
+
+        // Gripper may sometimes fail to grab elements.
+        if (gripper_holds(m, d)) {
+            move_vertical_to_container(m, d, &opt, &scn, &con, window, &gripper_cam, viewport);
+        }
+
         release(m, d, &opt, &scn, &con, window, &gripper_cam, viewport);
         move_vertical_to_center(m, d, &opt, &scn, &con, window, &gripper_cam, viewport);
     }
-
 
     // free visualization storage
     glfwDestroyWindow(window);
