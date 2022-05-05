@@ -6,8 +6,11 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
 
+
 #include "mujoco.h"
 #include "glfw3.h"
+
+#include <chrono>
 
 #include <FreeImage.h>
 
@@ -23,6 +26,14 @@ const int WIDTH = 1000;
 const int HEIGHT = 1000;
 
 #define debug false
+
+// timer
+chrono::system_clock::time_point tm_start;
+mjtNum gettm(void)
+{
+    chrono::duration<double> elapsed = chrono::system_clock::now() - tm_start;
+    return elapsed.count();
+}
 
 //////////////////// Color and Coutour Detection  //////////////////////
 // Takes path to existing .png file and returns all relative positions 
@@ -179,7 +190,10 @@ bool gripper_holds(const mjModel *m, mjData *d) {
     if (debug)
         cout << d->xpos[3 * left_gripper_id ] << " " << d->xpos[3 * left_gripper_id + 1 ] << " " << d->xpos[3 * left_gripper_id + 2 ] << " | " <<
                 d->xpos[3 * right_gripper_id] << " " << d->xpos[3 * right_gripper_id + 1] << " " << d->xpos[3 * right_gripper_id + 2] << "\n"; 
-    return abs(abs(d->xpos[3 * left_gripper_id]) - abs(d->xpos[3 * right_gripper_id])) > 0.02;
+
+    cout << "diff = " << abs(d->xpos[3 * left_gripper_id] - d->xpos[3 * right_gripper_id]) << "\n";
+
+    return abs(d->xpos[3 * left_gripper_id] - d->xpos[3 * right_gripper_id]) > 0.1;
 }
 
 pair<mjtNum, mjtNum> get_body_coords(const mjModel *m, pair<int, int> pixel_coords,
@@ -242,12 +256,28 @@ void simulate(mjtNum sim_time, const mjModel *m, mjData *d, const mjvOption *opt
     }
 }
 
+void move_to(const mjModel *m, mjData *d, const mjvOption *opt, mjvScene *scn, const mjrContext *con,
+                                GLFWwindow *window, mjvCamera *gripper_cam, const mjrRect viewport,
+                                pair <int, int> goal) {
+
+    tuple<mjtNum, mjtNum, mjtNum> cam_coords = get_gripper_cam_coords(m, d);
+    pair<mjtNum, mjtNum> closest_coords = get_body_coords(m, goal, cam_coords);
+
+    d->ctrl[0] = closest_coords.first;
+    d->ctrl[1] = closest_coords.second;
+
+    simulate(2, m, d, opt, scn, con, window, gripper_cam, viewport);
+}
+
 
 void move_vertical_to_block(const mjModel *m, mjData *d, const mjvOption *opt, mjvScene *scn, const mjrContext *con,
                             GLFWwindow *window, mjvCamera *gripper_cam, const mjrRect viewport, vector<pair<int, int>> centers) {
 
     pair<int, int> closest_pixels = get_closest_pixels(centers);
 
+    move_to(m, d, opt, scn, con, window, gripper_cam, viewport, closest_pixels);
+
+    /*
     tuple<mjtNum, mjtNum, mjtNum> cam_coords = get_gripper_cam_coords(m, d);
     pair<mjtNum, mjtNum> closest_coords = get_body_coords(m, closest_pixels, cam_coords);
 
@@ -255,6 +285,7 @@ void move_vertical_to_block(const mjModel *m, mjData *d, const mjvOption *opt, m
     d->ctrl[1] = closest_coords.second;
 
     simulate(2, m, d, opt, scn, con, window, gripper_cam, viewport);
+    */
 }
 
 
@@ -291,6 +322,7 @@ void move_up(const mjModel *m, mjData *d, const mjvOption *opt, mjvScene *scn, c
 }
 
 
+
 void grab(const mjModel *m, mjData *d, const mjvOption *opt, mjvScene *scn, const mjrContext *con,
           GLFWwindow *window, mjvCamera *gripper_cam, const mjrRect viewport) {
 
@@ -309,15 +341,95 @@ void release(const mjModel *m, mjData *d, const mjvOption *opt, mjvScene *scn, c
 }
 
 
+//receives a 2D array of bools (true - success or false - fail) and its sizes
+void display_map(bool **arr, int height, int width){
+   //Crete the image base
+   Mat image = Mat::zeros(height, width, CV_8U);
+
+   //Check for failure
+   if (image.empty()) 
+   {
+      printf("Could not create the image!!\n");
+      return;
+   }
+   
+   // Put correct values of pixels
+   for(int i = 0; i < height; ++i){
+      for(int j = 0; j < width; ++j){
+         image.at<unsigned char>(i, j) = 255 * arr[i][j];
+      }
+   }
+
+   //Display the image
+   String windowName = "Successful_catches";
+   namedWindow(windowName);
+   imshow(windowName, image);
+
+   waitKey(0);
+   destroyWindow(windowName);
+
+   return;
+}
+
+
+vector <pair <int, int>> get_attempt_positions() {
+    
+    //return getContours("../myproject/mujoco-grasping-sim/photo.png");
+    /*
+    for (auto center : centers) {
+        cout << "center (" << center.first << ", " << center.second << ")\n";
+    }
+
+    vector <pair <int, int>> positions;
+
+    for (int i = 0; i < HEIGHT; ++i) {
+        for (int j = 0; j < WIDTH; ++j) {
+            //cout << "i=" << i << " j=" << j << "\n";
+            for (auto center : centers) {
+                if (abs(i - center.first) <= 10 && abs(j - center.second) <= 10) {
+                    positions.push_back({i, j});
+                    break;
+                }
+            }
+        }
+    }
+
+    return positions;*/
+    
+    vector <pair <int, int>> positions;
+
+    for (int i = 0; i < HEIGHT; ++i) {
+        for (int j = 0; j < WIDTH; ++j) {
+            if (i % 2 == 0 && j % 3 == 0) {
+                positions.push_back({i, j});
+            }
+        }
+    }
+
+    return positions;
+
+    /*
+    i = 0 (368, 816)
+    i = 1 (500, 500)
+    i = 2 (319, 448)
+    i = 3 (672, 376)
+    i = 4 (500, 323)
+    */
+}
+
+
 int main() {
+    tm_start = chrono::system_clock::now();
+
     char xmlpath[100] = {};
     strcat(xmlpath, project_path);
     strcat(xmlpath, xmlfile);
 
     char error[1000] = "Could not load binary model";
     mjModel *m = mj_loadXML(xmlpath, nullptr, error, 1000);
-    mjData *d = mj_makeData(m);
-
+    //mjData *d = mj_makeData(m);
+    mjData *tmpd = mj_makeData(m);
+    
     if (!glfwInit())
         mju_error("Could not initialize GLFW");
 
@@ -345,6 +457,7 @@ int main() {
     mjrRect viewport = {0, 0, 0, 0};
     glfwGetFramebufferSize(window, &viewport.width, &viewport.height);
 
+    /*
     while (true) {
         mj_step(m, d);
         make_png_image(m, d, &opt, &scn, &con, window, &gripper_cam, viewport);
@@ -369,14 +482,76 @@ int main() {
         release(m, d, &opt, &scn, &con, window, &gripper_cam, viewport);
         move_vertical_to_center(m, d, &opt, &scn, &con, window, &gripper_cam, viewport);
     }
+    */
+    
+    vector <pair <int, int>> v;
+    
+    make_png_image(m, tmpd, &opt, &scn, &con, window, &gripper_cam, viewport);
+    v = get_attempt_positions();
+    
+    for (int i = 0; i < v.size(); ++i) {
+        cout << "i = " << i << " (" << v[i].first << ", " << v[i].second << ")\n";
+    }
 
+    double tm_global_start = gettm();
+
+    bool **success_map;
+    success_map = new bool *[HEIGHT];
+
+    for(int i = 0; i < HEIGHT; ++i){
+        success_map[i] = new bool[WIDTH];
+
+        for(int j = 0; j < WIDTH; ++j){
+            success_map[i][j] = {false};
+        }
+    }
+
+    mj_deleteData(tmpd);
+    int all_attempts = v.size();
+
+    for (int iter = 0; iter < v.size(); ++iter) {
+        double tm_start = gettm();
+        mjData *d = mj_makeData(m);
+        mj_step(m, d);
+
+        move_to(m, d, &opt, &scn, &con, window, &gripper_cam, viewport, v[iter]);
+        move_down(m, d, &opt, &scn, &con, window, &gripper_cam, viewport);
+        grab(m, d, &opt, &scn, &con, window, &gripper_cam, viewport);
+        move_up(m, d, &opt, &scn, &con, window, &gripper_cam, viewport);
+
+        // Gripper may sometimes fail to grab elements.
+        if (gripper_holds(m, d)) {
+            //move_vertical_to_container(m, d, &opt, &scn, &con, window, &gripper_cam, viewport);
+            success_map[v[iter].first][v[iter].second] = true;
+
+            for (int i = 0; i < 2; ++i) {
+                for (int j = 0; j < 3; ++j) {
+                    success_map[v[iter].first + i][v[iter].second + j] = true;
+                }
+            }
+
+            cout << "SUCCESS\n";
+        }
+
+        double tm_end = gettm();
+        mj_deleteData(d);
+
+        cout << "attempt " << iter + 1  << "/" << all_attempts << ", time = " << tm_end - tm_start << "\n\n";
+    }
+
+    double tm_global_end = gettm();
+
+    cout << "Simulation time: " << tm_global_end - tm_global_start << "\n";
+
+    display_map(success_map, HEIGHT, WIDTH);
+    
     // free visualization storage
     glfwDestroyWindow(window);
     mjv_freeScene(&scn);
     mjr_freeContext(&con);
 
     // free MuJoCo model and data, deactivate
-    mj_deleteData(d);
+    //mj_deleteData(d);
     mj_deleteModel(m);
     mj_deactivate();
 
