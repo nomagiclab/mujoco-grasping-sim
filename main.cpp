@@ -4,10 +4,8 @@
 #include <chrono>
 
 #include <opencv2/imgcodecs.hpp>
-#include <opencv2/highgui.hpp>
 
 #include "mujoco.h"
-
 
 using namespace cv;
 using namespace std;
@@ -106,7 +104,7 @@ void move_to(const mjModel *m, mjData *d, pair <int, int> goal) {
     d->ctrl[0] = closest_coords.first;
     d->ctrl[1] = closest_coords.second;
 
-    simulate(2, m, d);
+    simulate(1, m, d);
 }
 
 
@@ -129,32 +127,24 @@ void grab(const mjModel *m, mjData *d) {
 }
 
 
-//receives a 2D array of bools (true - success or false - fail) and its sizes
-void display_map(const bool arr[HEIGHT][WIDTH], int height, int width){
+void save_success_map(const bool arr[HEIGHT][WIDTH]){
    //Crete the image base
-   Mat image = Mat::zeros(height, width, CV_8U);
+   Mat image = Mat::zeros(HEIGHT, WIDTH, CV_8U);
 
    //Check for failure
-   if (image.empty()) 
-   {
+   if (image.empty()) {
       printf("Could not create the image!!\n");
       return;
    }
    
    // Put correct values of pixels
-   for(int i = 0; i < height; ++i){
-      for(int j = 0; j < width; ++j){
+   for(int i = 0; i < HEIGHT; ++i){
+      for(int j = 0; j < WIDTH; ++j){
          image.at<unsigned char>(i, j) = 255 * arr[i][j];
       }
    }
 
-   //Display the image
-   String windowName = "Successful_catches";
-   namedWindow(windowName);
-   imshow(windowName, image);
-
-   waitKey(0);
-   destroyWindow(windowName);
+    imwrite("../myproject/mujoco-grasping-sim/success_map.png", image);
 }
 
 
@@ -228,7 +218,7 @@ int main() {
 
     cout << "Simulation time: " << sim_time << "\n";
 
-    display_map(success_map, HEIGHT, WIDTH);
+    save_success_map(success_map);
     
     mj_deleteModel(m);
     mj_deactivate();

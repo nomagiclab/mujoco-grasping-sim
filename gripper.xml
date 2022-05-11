@@ -5,7 +5,7 @@
 
    <option gravity="0 0 -2" />
 
-   <include file="many_balls.xml"/>
+   <include file="blocks.xml"/>
 
    <worldbody>
       <light diffuse=".5 .5 .5" pos="0 0 3" dir="0 0 -1"/>
