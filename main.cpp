@@ -233,10 +233,5 @@ int main() {
     mj_deleteModel(m);
     mj_deactivate();
 
-    // terminate GLFW (crashes with Linux NVidia drivers)
-#if defined(__APPLE__) || defined(_WIN32)
-    glfwTerminate();
-#endif
-
-    return 1;
+    return 0;
 }
