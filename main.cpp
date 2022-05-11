@@ -127,7 +127,7 @@ void grab(const mjModel *m, mjData *d) {
 }
 
 
-void save_success_map(const bool arr[HEIGHT][WIDTH]){
+void save_success_map(const bool arr[HEIGHT][WIDTH], int map_number){
    //Crete the image base
    Mat image = Mat::zeros(HEIGHT, WIDTH, CV_8U);
 
@@ -144,7 +144,8 @@ void save_success_map(const bool arr[HEIGHT][WIDTH]){
       }
    }
 
-    imwrite("../myproject/mujoco-grasping-sim/success_map.png", image);
+    string path = "../myproject/mujoco-grasping-sim/success_map" + to_string(map_number) + ".png";
+    imwrite(path, image);
 }
 
 
@@ -174,51 +175,48 @@ int main() {
     gripper_cam.fixedcamid = get_id(m, mjOBJ_CAMERA, "gripper-cam");
     gripper_cam.trackbodyid = -1;
     
-    vector <pair <int, int>> attempt_positions = get_attempt_positions();
-    
-    for (int i = 0; i < attempt_positions.size(); ++i) {
-        cout << "i = " << i << " (" << attempt_positions[i].first << ", " << attempt_positions[i].second << ")\n";
-    }
+    const vector <pair <int, int>> attempt_positions = get_attempt_positions();
 
-    chrono::steady_clock::time_point sim_tm_start = chrono::steady_clock::now();
+    for (int map_number = 0; map_number < 10; map_number++) {
+        chrono::steady_clock::time_point sim_tm_start = chrono::steady_clock::now();
 
-    bool success_map[HEIGHT][WIDTH];
+        bool success_map[HEIGHT][WIDTH];
 
-    for(int i = 0; i < HEIGHT; ++i){
-        for(int j = 0; j < WIDTH; ++j){
-            success_map[i][j] = false;
-        }
-    }
-
-    unsigned long all_attempts = attempt_positions.size();
-
-    for (int iter = 0; iter < attempt_positions.size(); ++iter) {
-        chrono::steady_clock::time_point attempt_tm_start = chrono::steady_clock::now();
-        mjData *d = mj_makeData(m);
-        mj_step(m, d);
-
-        move_to(m, d, attempt_positions[iter]);
-        move_down(m, d);
-        grab(m, d);
-        move_up(m, d);
-
-        // Gripper may sometimes fail to grab elements.
-        if (gripper_holds(m, d)) {
-            success_map[attempt_positions[iter].first][attempt_positions[iter].second] = true;
-            cout << "SUCCESS\n";
+        for(int i = 0; i < HEIGHT; ++i){
+            for(int j = 0; j < WIDTH; ++j){
+                success_map[i][j] = false;
+            }
         }
 
-        double attempt_time = get_tm_diff(attempt_tm_start);
-        mj_deleteData(d);
+        unsigned long all_attempts = attempt_positions.size();
 
-        cout << "attempt " << iter + 1  << "/" << all_attempts << ", time = " << attempt_time << "\n\n";
+        for (int iter = 0; iter < all_attempts; ++iter) {
+            chrono::steady_clock::time_point attempt_tm_start = chrono::steady_clock::now();
+            mjData *d = mj_makeData(m);
+            mj_step(m, d);
+
+            move_to(m, d, attempt_positions[iter]);
+            move_down(m, d);
+            grab(m, d);
+            move_up(m, d);
+
+            // Gripper may sometimes fail to grab elements.
+            if (gripper_holds(m, d)) {
+                success_map[attempt_positions[iter].first][attempt_positions[iter].second] = true;
+                cout << "SUCCESS\n";
+            }
+
+            double attempt_time = get_tm_diff(attempt_tm_start);
+            mj_deleteData(d);
+
+            cout << "attempt " << iter + 1  << "/" << all_attempts << ", time = " << attempt_time << "\n\n";
+        }
+
+        double sim_time = get_tm_diff(sim_tm_start);
+        cout << "Simulation time: " << sim_time << "\n";
+
+        save_success_map(success_map, map_number);
     }
-
-    double sim_time = get_tm_diff(sim_tm_start);
-
-    cout << "Simulation time: " << sim_time << "\n";
-
-    save_success_map(success_map);
     
     mj_deleteModel(m);
     mj_deactivate();
