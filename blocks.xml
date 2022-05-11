@@ -1,8 +1,8 @@
 <mujoco>
-    <asset>
-        <texture name="texsponge" type="2d" file="sponge.png"/>  
-        <material name="matsponge" texture="texsponge" specular="0.3"/>        
-    </asset>
+<!--    <asset>-->
+<!--        <texture name="texsponge" type="2d" file="sponge.png"/>  -->
+<!--        <material name="matsponge" texture="texsponge" specular="0.3"/>        -->
+<!--    </asset>-->
 
     <option solver="CG" tolerance="1e-6"/>
 
@@ -46,13 +46,13 @@
             <geom type="cylinder" size=".1 .2" rgba=".3 .5 .2 1"/>
         </body>
     
-        <body name="sponge" pos="1 0 0.13">
-            <joint type = "free"/>
-            <composite type="box" count="7 7 7" spacing="0.04">
-                <skin texcoord="true" material="matsponge" rgba=".7 .7 .7 1"/>
-                <geom type="capsule" size=".015 0.05" rgba=".8 .2 .1 1"/>
-            </composite>
-        </body>
+<!--        <body name="sponge" pos="1 0 0.13">-->
+<!--            <joint type = "free"/>-->
+<!--            <composite type="box" count="7 7 7" spacing="0.04">-->
+<!--                <skin texcoord="true" material="matsponge" rgba=".7 .7 .7 1"/>-->
+<!--                <geom type="capsule" size=".015 0.05" rgba=".8 .2 .1 1"/>-->
+<!--            </composite>-->
+<!--        </body>-->
 
         <body name="hammer" pos="1.5 1.5 0.15" euler="90 0 0">
             <joint type = "free"/>
