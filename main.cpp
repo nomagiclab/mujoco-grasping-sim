@@ -15,8 +15,8 @@ using namespace std;
 const char project_path[] = "../myproject/mujoco-grasping-sim/";
 const char xmlfile[] = "gripper.xml";
 
-#define WIDTH 10
-#define HEIGHT 10
+#define WIDTH 224
+#define HEIGHT 224
 
 #define debug false
 
@@ -175,10 +175,6 @@ int main() {
     gripper_cam.trackbodyid = -1;
     
     vector <pair <int, int>> attempt_positions = get_attempt_positions();
-    
-    for (int i = 0; i < attempt_positions.size(); ++i) {
-        cout << "i = " << i << " (" << attempt_positions[i].first << ", " << attempt_positions[i].second << ")\n";
-    }
 
     chrono::steady_clock::time_point sim_tm_start = chrono::steady_clock::now();
 
