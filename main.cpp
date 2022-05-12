@@ -15,8 +15,8 @@ using namespace std;
 const char project_path[] = "../myproject/mujoco-grasping-sim/";
 const char xmlfile[] = "gripper.xml";
 
-#define WIDTH 224
-#define HEIGHT 224
+#define WIDTH 10
+#define HEIGHT 10
 
 #define debug false
 
@@ -75,9 +75,9 @@ pair<mjtNum, mjtNum> get_body_coords(const mjModel *m, pair<int, int> pixel_coor
     mjtNum y_coord_diff = tan((m->cam_fovy[cam_id] / 2) * (PI / 180)) * get<2>(cam_coords) * 2;
     mjtNum x_coord_diff = y_coord_diff;
 
-    mjtNum x_coord = get<0>(cam_coords) + (static_cast<double>(pixel_coords.first) - static_cast<double>(WIDTH) / 2)
+    mjtNum x_coord = get<0>(cam_coords) + (static_cast<double>(pixel_coords.second) - static_cast<double>(WIDTH) / 2)
                                           / WIDTH * x_coord_diff;
-    mjtNum y_coord = get<1>(cam_coords) - (static_cast<double>(pixel_coords.second) - static_cast<double>(HEIGHT) / 2)
+    mjtNum y_coord = get<1>(cam_coords) - (static_cast<double>(pixel_coords.first) - static_cast<double>(HEIGHT) / 2)
                                           / HEIGHT * y_coord_diff;
 
     //cout << "coords " << x_coord << " " << y_coord << endl;
