@@ -15,8 +15,8 @@ using namespace std;
 const char project_path[] = "../myproject/mujoco-grasping-sim/";
 const char xmlfile[] = "gripper.xml";
 
-#define WIDTH 4
-#define HEIGHT 4
+#define WIDTH 10
+#define HEIGHT 10
 
 #define debug false
 
@@ -56,15 +56,17 @@ bool gripper_holds(const mjModel *m, mjData *d) {
     // Could not find a better solution as of now.
     if (debug)
         cout << d->xpos[3 * left_gripper_id ] << " " << d->xpos[3 * left_gripper_id + 1 ] << " " << d->xpos[3 * left_gripper_id + 2 ] << " | " <<
-                d->xpos[3 * right_gripper_id] << " " << d->xpos[3 * right_gripper_id + 1] << " " << d->xpos[3 * right_gripper_id + 2] << "\n"; 
+                d->xpos[3 * right_gripper_id] << " " << d->xpos[3 * right_gripper_id + 1] << " " << d->xpos[3 * right_gripper_id + 2] << "\n";
 
-    cout << "diff = " << abs(d->xpos[3 * left_gripper_id] - d->xpos[3 * right_gripper_id]) << "\n";
+    auto diff = hypot((d->xpos[3 * left_gripper_id] - d->xpos[3 * right_gripper_id]), (d->xpos[3 * left_gripper_id + 1] - d->xpos[3 * right_gripper_id + 1]));
 
-    return abs(d->xpos[3 * left_gripper_id] - d->xpos[3 * right_gripper_id]) > 0.1;
+    cout << "diff = " << diff << "\n";
+
+    return diff > 0.1;
 }
 
 
-pair<mjtNum, mjtNum> get_body_coords(const mjModel *m, pair<int, int> pixel_coords,
+pair<mjtNum, mjtNum> get_body_coords(const mjModel *m, pair<int, int> pixel_height_width,
                                      tuple<mjtNum, mjtNum, mjtNum> cam_coords) {
     if (HEIGHT != WIDTH) {
         throw std::runtime_error("get_body_coords error: WIDTH and HEIGHT has to be the same");
@@ -75,12 +77,11 @@ pair<mjtNum, mjtNum> get_body_coords(const mjModel *m, pair<int, int> pixel_coor
     mjtNum y_coord_diff = tan((m->cam_fovy[cam_id] / 2) * (PI / 180)) * get<2>(cam_coords) * 2;
     mjtNum x_coord_diff = y_coord_diff;
 
-    mjtNum x_coord = get<0>(cam_coords) + (static_cast<double>(pixel_coords.second) - static_cast<double>(WIDTH) / 2)
+    mjtNum x_coord = get<0>(cam_coords) + (static_cast<double>(pixel_height_width.second) - static_cast<double>(WIDTH) / 2)
                                           / WIDTH * x_coord_diff;
-    mjtNum y_coord = get<1>(cam_coords) - (static_cast<double>(pixel_coords.first) - static_cast<double>(HEIGHT) / 2)
+    mjtNum y_coord = get<1>(cam_coords) - (static_cast<double>(pixel_height_width.first) - static_cast<double>(HEIGHT) / 2)
                                           / HEIGHT * y_coord_diff;
 
-    //cout << "coords " << x_coord << " " << y_coord << endl;
     return make_pair(x_coord, y_coord);
 }
 
@@ -128,7 +129,6 @@ void grab(const mjModel *m, mjData *d) {
 
 
 void rotate(const mjModel *m, mjData *d, double radian_angle) {
-
     d->ctrl[5] = radian_angle;
 }
 
@@ -163,7 +163,6 @@ vector <pair <int, int>> get_attempt_positions() {
             positions.emplace_back(i, j);
         }
     }
-
     return positions;
 }
 
@@ -199,6 +198,7 @@ int main() {
         for (int iter = 0; iter < all_attempts; ++iter) {
             chrono::steady_clock::time_point attempt_tm_start = chrono::steady_clock::now();
             mjData *d = mj_makeData(m);
+            mj_step(m, d);
 
             double rotation = PI/8 * map_number;
 
@@ -208,7 +208,6 @@ int main() {
             grab(m, d);
             move_up(m, d);
 
-            // Gripper may sometimes fail to grab elements.
             if (gripper_holds(m, d)) {
                 success_map[attempt_positions[iter].first][attempt_positions[iter].second] = true;
                 cout << "SUCCESS\n";
