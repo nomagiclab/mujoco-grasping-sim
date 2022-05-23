@@ -15,8 +15,8 @@ using namespace std;
 const char project_path[] = "../myproject/mujoco-grasping-sim/";
 const char xmlfile[] = "gripper.xml";
 
-#define WIDTH 10
-#define HEIGHT 10
+#define WIDTH 100
+#define HEIGHT 100
 
 #define debug false
 
