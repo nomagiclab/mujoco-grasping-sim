@@ -3,7 +3,7 @@
     <worldbody>
         <body name="red_box" pos="0 0 0.1" euler="0 0 0">
             <joint type = "free"/>
-            <inertial pos=".1 .1 .1" mass="10" diaginertia="0.01 0.01 0.01"/>
+<!--            <inertial pos=".1 .1 .1" mass="10" diaginertia="0.01 0.01 0.01"/>-->
             <geom type="box" size=".1 .1 .1" rgba="0.7 0 0 1"/>
         </body>
 
