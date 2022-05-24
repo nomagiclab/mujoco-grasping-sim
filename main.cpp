@@ -1,33 +1,16 @@
 #include <algorithm>
 #include <iostream>
 #include <cmath>
-#include <stdlib.h>
-#include <stdio.h>
-#include <cstring>
-#include <string>
 #include <chrono>
-#include <thread>
-#include <sys/stat.h>
-#include <unistd.h>
 
 #include <opencv2/imgcodecs.hpp>
 
 #include "mujoco.h"
 
-using namespace std;
 using namespace cv;
+using namespace std;
 
-#define debug false
 #define PI 3.14159265358979323846
-
-// model and per-thread data
-mjModel* m = NULL;
-mjData* d[64];
-
-// per-thread statistics
-int contacts[64];
-int constraints[64];
-double simtime[64];
 
 const char project_path[] = "../myproject/mujoco-grasping-sim/";
 const char xmlfile[] = "gripper.xml";
@@ -35,54 +18,7 @@ const char xmlfile[] = "gripper.xml";
 #define WIDTH 100
 #define HEIGHT 100
 
-// timer
-chrono::system_clock::time_point tm_start;
-mjtNum gettm(void)
-{
-    chrono::duration<double> elapsed = chrono::system_clock::now() - tm_start;
-    return elapsed.count();
-}
-
-
-// deallocate and print message
-int finish(const char* msg = NULL, mjModel* m = NULL)
-{
-    // deallocate model
-    if( m )
-        mj_deleteModel(m);
-    mj_deactivate();
-
-    // print message
-    if( msg )
-        printf("%s\n", msg);
-
-    return 0;
-}
-
-
-// thread function
-void thread_simulate(int id, int nstep)
-{
-    // clear statistics
-    contacts[id] = 0;
-    constraints[id] = 0;
-    
-    // run and time
-    double start = gettm();
-    for( int i=0; i<nstep; i++ )
-    {
-        // advance simulation
-        mj_step(m, d[id]);
-
-        // accumulate statistics
-        contacts[id] += d[id]->ncon;
-        constraints[id] += d[id]->nefc;
-    }
-    simtime[id] = gettm() - start;
-}
-
-
-
+#define debug false
 
 
 mjtNum get_tm_diff(chrono::steady_clock::time_point tm_start)
@@ -97,14 +33,10 @@ mjtNum get_tm_diff(chrono::steady_clock::time_point tm_start)
 // Output : Element's id.
 // Throws error when element is not found within the xml.
 int get_id(const mjModel *m, int object, const char* name) {
-    printf("-> -%s-\n", name);
     int object_id = mj_name2id(m, object, name);
-    printf("aaa\n");
     if (object_id == -1) {
-        printf("xle\n");
         throw std::runtime_error("mj_name2id error");
     }
-    printf("bbb\n");
     return object_id;
 }
 
@@ -234,9 +166,8 @@ vector <pair <int, int>> get_attempt_positions() {
     return positions;
 }
 
-// main function
-int main(int argc, const char** argv)
-{
+
+int main() {
     char xmlpath[100] = {};
     strcat(xmlpath, project_path);
     strcat(xmlpath, xmlfile);
@@ -246,15 +177,7 @@ int main(int argc, const char** argv)
 
     mjvCamera gripper_cam;
     gripper_cam.type = mjCAMERA_FIXED;
-    printf("tutaj\n");
-    printf("-%d-\n", mjOBJ_CAMERA);
-    gripper_cam.fixedcamid = mj_name2id(m, mjOBJ_CAMERA, "gripper-cam");
-    printf("aaa\n");
-    if (gripper_cam.fixedcamid == -1) {
-        printf("xle\n");
-        throw std::runtime_error("mj_name2id error");
-    }
-    printf("tu\n");
+    gripper_cam.fixedcamid = get_id(m, mjOBJ_CAMERA, "gripper-cam");
     gripper_cam.trackbodyid = -1;
     
     vector <pair <int, int>> attempt_positions = get_attempt_positions();
