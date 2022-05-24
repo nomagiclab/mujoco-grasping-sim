@@ -1,6 +1,14 @@
 #include <algorithm>
 #include <iostream>
 #include <cmath>
+#include <stdlib.h>
+#include <stdio.h>
+#include <cstring>
+#include <string>
+#include <chrono>
+#include <thread>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/highgui.hpp>
@@ -11,10 +19,20 @@
 
 #include <FreeImage.h>
 
-using namespace cv;
 using namespace std;
+using namespace cv;
 
+#define debug false
 #define PI 3.14159265358979323846
+
+// model and per-thread data
+mjModel* m = NULL;
+mjData* d[64];
+
+// per-thread statistics
+int contacts[64];
+int constraints[64];
+double simtime[64];
 
 const char project_path[] = "../myproject/mujoco-grasping-sim/";
 const char xmlfile[] = "gripper.xml";
@@ -22,7 +40,54 @@ const char xmlfile[] = "gripper.xml";
 const int WIDTH = 1000;
 const int HEIGHT = 1000;
 
-#define debug false
+// timer
+chrono::system_clock::time_point tm_start;
+mjtNum gettm(void)
+{
+    chrono::duration<double> elapsed = chrono::system_clock::now() - tm_start;
+    return elapsed.count();
+}
+
+
+// deallocate and print message
+int finish(const char* msg = NULL, mjModel* m = NULL)
+{
+    // deallocate model
+    if( m )
+        mj_deleteModel(m);
+    mj_deactivate();
+
+    // print message
+    if( msg )
+        printf("%s\n", msg);
+
+    return 0;
+}
+
+
+// thread function
+void thread_simulate(int id, int nstep)
+{
+    // clear statistics
+    contacts[id] = 0;
+    constraints[id] = 0;
+    
+    // run and time
+    double start = gettm();
+    for( int i=0; i<nstep; i++ )
+    {
+        // advance simulation
+        mj_step(m, d[id]);
+
+        // accumulate statistics
+        contacts[id] += d[id]->ncon;
+        constraints[id] += d[id]->nefc;
+    }
+    simtime[id] = gettm() - start;
+}
+
+
+
 
 //////////////////// Color and Coutour Detection  //////////////////////
 // Takes path to existing .png file and returns all relative positions 
@@ -120,10 +185,14 @@ vector<pair<int, int>> getContours(const string &png_path) {
 // Output : Element's id.
 // Throws error when element is not found within the xml.
 int get_id(const mjModel *m, int object, const char* name) {
+    printf("-> -%s-\n", name);
     int object_id = mj_name2id(m, object, name);
+    printf("aaa\n");
     if (object_id == -1) {
+        printf("xle\n");
         throw std::runtime_error("mj_name2id error");
     }
+    printf("bbb\n");
     return object_id;
 }
 
@@ -308,15 +377,29 @@ void release(const mjModel *m, mjData *d, const mjvOption *opt, mjvScene *scn, c
     simulate(2, m, d, opt, scn, con, window, gripper_cam, viewport);
 }
 
-
-int main() {
+// main function
+int main(int argc, const char** argv)
+{
     char xmlpath[100] = {};
     strcat(xmlpath, project_path);
     strcat(xmlpath, xmlfile);
 
     char error[1000] = "Could not load binary model";
-    mjModel *m = mj_loadXML(xmlpath, nullptr, error, 1000);
-    mjData *d = mj_makeData(m);
+    printf("plik:%s.\n", xmlpath);
+    struct stat buffer;
+    if(stat (xmlpath, &buffer) != 0){
+        char* cwd = getcwd(NULL, 0);
+        printf("sciezka-%s-\n", cwd);
+        printf("o nie\n");
+        return 0;
+    }
+    m = mj_loadXML(xmlpath, 0, error, 1000);
+    if(m == NULL){
+        printf("bleee\n");
+        return 1;
+    }
+    const char* name = "gripper-cam";
+    printf("%d\n", mj_name2id(m, mjOBJ_CAMERA, name));
 
     if (!glfwInit())
         mju_error("Could not initialize GLFW");
@@ -338,14 +421,76 @@ int main() {
 
     mjvCamera gripper_cam;
     gripper_cam.type = mjCAMERA_FIXED;
-    gripper_cam.fixedcamid = get_id(m, mjOBJ_CAMERA, "gripper-cam");
+    printf("tutaj\n");
+    printf("-%d-\n", mjOBJ_CAMERA);
+    gripper_cam.fixedcamid = mj_name2id(m, mjOBJ_CAMERA, "gripper-cam");
+    printf("aaa\n");
+    if (gripper_cam.fixedcamid == -1) {
+        printf("xle\n");
+        throw std::runtime_error("mj_name2id error");
+    }
+    printf("tu\n");
     gripper_cam.trackbodyid = -1;
 
     // get framebuffer viewport
     mjrRect viewport = {0, 0, 0, 0};
     glfwGetFramebufferSize(window, &viewport.width, &viewport.height);
 
-    while (true) {
+    // activate MuJoCo Pro license (this must be *your* activation key)
+    mj_activate("mjkey.txt");
+
+    // read nstep and nthread
+    int nstep = 0, nthread = 0, profile = 0;
+    if( sscanf(argv[1], "%d", &nstep)!=1 || nstep<=0 )
+        return finish("Invalid nstep argument");
+    if( argc>3 )
+        if( sscanf(argv[2], "%d", &nthread)!=1 )
+            return finish("Invalid nthread argument");
+    if( argc>4 )
+        if( sscanf(argv[3], "%d", &profile)!=1 )
+            return finish("Invalid profile argument");
+
+    // clamp nthread to [1, 64]
+    nthread = mjMAX(1, mjMIN(64, nthread));
+
+    // get filename, determine file type
+    std::string filename(argv[1]);
+    bool binary = (filename.find(".mjb")!=std::string::npos);
+
+    // make per-thread data
+    int testkey = mj_name2id(m, mjOBJ_KEY, "test");
+    for( int id=0; id<nthread; id++ )
+    {
+        d[id] = mj_makeData(m);
+        if( !d[id] )
+            return finish("Could not allocate mjData", m);
+
+        // init to keyframe "test" if present
+        if( testkey>=0 )
+        {
+            mju_copy(d[id]->qpos, m->key_qpos + testkey*m->nq, m->nq);
+            mju_copy(d[id]->qvel, m->key_qvel + testkey*m->nv, m->nv);
+            mju_copy(d[id]->act,  m->key_act  + testkey*m->na, m->na);
+        }
+    }
+
+    // install timer callback for profiling if requested
+    tm_start = chrono::system_clock::now();
+    if( profile )
+        mjcb_time = gettm;
+
+    // print start
+    if( nthread>1 )
+        printf("\nRunning %d steps per thread at dt = %g ...\n\n", nstep, m->opt.timestep);
+    else
+        printf("\nRunning %d steps at dt = %g ...\n\n", nstep, m->opt.timestep);
+
+    // run simulation, record total time
+    thread th[64];
+    double starttime = gettm();
+    for( int id=0; id<nthread; id++ )
+        th[id] = thread(thread_simulate, id, nstep);
+    /*while (true) {
         mj_step(m, d);
         make_png_image(m, d, &opt, &scn, &con, window, &gripper_cam, viewport);
         auto centers = getContours("../myproject/mujoco-grasping-sim/photo.png");
@@ -368,7 +513,49 @@ int main() {
 
         release(m, d, &opt, &scn, &con, window, &gripper_cam, viewport);
         move_vertical_to_center(m, d, &opt, &scn, &con, window, &gripper_cam, viewport);
+    }*/
+    for( int id=0; id<nthread; id++ )
+        th[id].join();
+    double tottime = gettm() - starttime;
+
+    // all-thread summary
+    if( nthread>1 )
+    {
+        printf("Summary for all %d threads\n\n", nthread);
+        printf(" Total simulation time  : %.2f s\n", tottime);
+        printf(" Total steps per second : %.0f\n", nthread*nstep/tottime);
+        printf(" Total realtime factor  : %.2f x\n", nthread*nstep*m->opt.timestep/tottime);
+        printf(" Total time per step    : %.4f ms\n\n", 1000*tottime/(nthread*nstep));
+
+        printf("Details for thread 0\n\n");
     }
+
+    // details for thread 0
+    printf(" Simulation time      : %.2f s\n", simtime[0]);
+    printf(" Steps per second     : %.0f\n", nstep/simtime[0]);
+    printf(" Realtime factor      : %.2f x\n", nstep*m->opt.timestep/simtime[0]);
+    printf(" Time per step        : %.4f ms\n\n", 1000*simtime[0]/nstep);
+    printf(" Contacts per step    : %d\n", contacts[0]/nstep);
+    printf(" Constraints per step : %d\n", constraints[0]/nstep);
+    printf(" Degrees of freedom   : %d\n\n", m->nv);
+
+    // profiler results for thread 0
+    if( profile )
+    {
+        printf(" Profiler phase (ms per step)\n");
+        mjtNum tstep = d[0]->timer[mjTIMER_STEP].duration/d[0]->timer[mjTIMER_STEP].number;
+        for( int i=0; i<mjNTIMER; i++ )
+            if( d[0]->timer[i].number>0 )
+            {
+                mjtNum istep = d[0]->timer[i].duration/d[0]->timer[i].number;
+                printf(" %16s : %.5f  (%6.2f %%)\n", mjTIMERSTRING[i],
+                    1000*istep, 100*istep/tstep);
+            }
+    }
+
+    // free per-thread data
+    for( int id=0; id<nthread; id++ )
+        mj_deleteData(d[id]);
 
     // free visualization storage
     glfwDestroyWindow(window);
@@ -376,7 +563,6 @@ int main() {
     mjr_freeContext(&con);
 
     // free MuJoCo model and data, deactivate
-    mj_deleteData(d);
     mj_deleteModel(m);
     mj_deactivate();
 
@@ -385,5 +571,6 @@ int main() {
     glfwTerminate();
 #endif
 
-    return 1;
+    // finalize
+    return finish();
 }

@@ -1,0 +1,9 @@
+<mujoco>
+    <worldbody>
+        <body name="big_ball" pos="-0.5 -1.2 .3" euler="0 0 0">
+            <joint type = "free"/>
+            <geom type="sphere" size=".3" rgba="0 .4 .4 1"/>
+        </body>
+
+    </worldbody>
+</mujoco>

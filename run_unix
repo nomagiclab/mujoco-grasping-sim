@@ -1,4 +1,4 @@
 reset
 make clean
 make
-cd ../../bin && ./mujoco-grasping-sim
+cd ../../bin && valgrind -v ./mujoco-grasping-sim

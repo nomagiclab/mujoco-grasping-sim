@@ -1,0 +1,34 @@
+<mujoco>
+    <worldbody>
+        <body name="big_box1" pos="-0.5 -1.2 .3" euler="0 0 0">
+            <joint type = "free"/>
+            <geom type="box" size=".3 .3 .3" rgba="0 .4 .4 1"/>
+        </body>
+
+        <body name="big_box2" pos="1 -0.7 .3" euler="0 0 0">
+            <joint type = "free"/>
+            <geom type="box" size=".3 .3 .3" rgba="0 .4 .4 1"/>
+        </body>
+
+        <body name="big_box3" pos="0 0 .3" euler="0 0 0">
+            <joint type = "free"/>
+            <geom type="box" size=".3 .3 .3" rgba="0 .4 .4 1"/>
+        </body>
+
+        <body name="big_box4" pos="0.5 1.2 .3" euler="0 0 0">
+            <joint type = "free"/>
+            <geom type="box" size=".3 .3 .3" rgba="0 .4 .4 1"/>
+        </body>
+
+        <body name="big_box5" pos="1 0.3 .3" euler="0 0 0">
+            <joint type = "free"/>
+            <geom type="box" size=".3 .3 .3" rgba="0 .4 .4 1"/>
+        </body>
+
+        <body name="big_box6" pos="-0.7 0.5 .3" euler="0 0 0">
+            <joint type = "free"/>
+            <geom type="box" size=".3 .3 .3" rgba="0 .4 .4 1"/>
+        </body>
+
+    </worldbody>
+</mujoco>

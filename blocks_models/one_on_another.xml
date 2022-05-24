@@ -1,0 +1,14 @@
+<mujoco>
+    <worldbody>
+        <body name="bottom_box" pos="-0.5 -1.2 .3" euler="0 0 0">
+            <joint type = "free"/>
+            <geom type="box" size=".3 .4 .3" rgba="0 .4 .4 1"/>
+        </body>
+
+        <body name="top_box" pos="-0.5 -1.2 .8" euler="0 0 0">
+            <joint type = "free"/>
+            <geom type="box" size=".2 .2 .2" rgba="0.4 .4 .4 1"/>
+        </body>
+
+    </worldbody>
+</mujoco>
