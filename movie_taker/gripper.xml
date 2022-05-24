@@ -1,0 +1,54 @@
+<mujoco>
+   <visual>
+      <headlight ambient="1 1 1" />
+   </visual>
+
+   <option gravity="0 0 -2" />
+
+   <include file="blocks.xml"/>
+
+   <worldbody>
+      <light diffuse=".5 .5 .5" pos="0 0 3" dir="0 0 -1"/>
+
+      <geom type="plane" size="10 10 0.1" rgba=".6 .6 .6 1"/>
+
+      <body pos="0 0 5" euler="0 0 0">
+         <body name="gripper-cam-body">
+            <camera mode="fixed" name="gripper-cam"/>
+         </body>
+
+         <joint type="slide" name="x-slide" axis="1 0 0"/>
+         <joint type="slide" name="y-slide" axis="0 1 0"/>
+         <joint type="slide" name="z-slide" axis="0 0 1"/> 
+         <joint type="hinge" name="rotor" axis="0 0 1"/> 
+         <geom type="sphere" size=".05" rgba="255 0 0 1" mass="10"/>
+
+         <body pos="-0.5 0 -1" name="arm1_body" euler="0 90 0">
+            <joint type="slide" name="arm1"/>
+            <geom type="box" size=".2 .2 .05" name="arm_left" rgba="255 128 0 1" mass="100"/>
+         </body>
+         <body pos="0.5 0 -1" name="arm2_body" euler="0 -90 0">
+            <joint type="slide" name="arm2"/>
+            <geom type="box" size=".2 .2 .05" name="arm_right" rgba="255 128 0 1" mass="100"/>
+         </body>
+      </body> 
+
+   </worldbody>
+   <actuator>
+
+      <position name="x-pos" joint="x-slide" kp="1000" ctrllimited="true" ctrlrange="-5 5"/>
+      <position name="y-pos" joint="y-slide" kp="1000" ctrllimited="true" ctrlrange="-5 5"/>
+      <position name="z-pos" joint="z-slide" kp="1000" ctrllimited="true" ctrlrange="-3.5 1"/>
+      <position name="armp1" joint="arm1" kp="2000" ctrllimited="true" ctrlrange="-0.5 0.5"/>
+      <position name="armp2" joint="arm2" kp="2000" ctrllimited="true" ctrlrange="-0.5 0.5"/>
+      <position name="rotor-pos" joint="rotor" kp="1000" ctrllimited="true" ctrlrange="-3.14 3.14"/>
+      
+      <velocity name="x-vel" joint="x-slide" kv="1000"/>
+      <velocity name="y-vel" joint="y-slide" kv="1000"/>
+      <velocity name="z-vel" joint="z-slide" kv="1000"/>
+      <velocity name="armv1" joint="arm1" kv="2000"/>
+      <velocity name="armv2" joint="arm2" kv="2000"/>
+      <velocity name="rotor-vel" joint="rotor" kv="1000"/>
+
+   </actuator>
+</mujoco>
