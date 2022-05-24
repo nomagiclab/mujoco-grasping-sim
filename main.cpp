@@ -15,8 +15,10 @@ using namespace std;
 const char project_path[] = "../myproject/mujoco-grasping-sim/";
 const char xmlfile[] = "gripper.xml";
 
-#define WIDTH 100
-#define HEIGHT 100
+#define WIDTH 10
+#define HEIGHT 10
+
+#define ROTATIONS 8
 
 #define debug false
 
@@ -133,7 +135,19 @@ void rotate(const mjModel *m, mjData *d, double radian_angle) {
 }
 
 
-void save_success_map(const bool arr[HEIGHT][WIDTH], int map_number){
+vector <pair <int, int>> get_attempt_positions() {
+    vector <pair <int, int>> positions;
+
+    for (int i = 0; i < HEIGHT; ++i) {
+        for (int j = 0; j < WIDTH; ++j) {
+            positions.emplace_back(i, j);
+        }
+    }
+    return positions;
+}
+
+
+void save_success_map(const bool arr[HEIGHT][WIDTH], int map_number) {
     //Crete the image base
     Mat image = Mat::zeros(HEIGHT, WIDTH, CV_8U);
 
@@ -155,15 +169,48 @@ void save_success_map(const bool arr[HEIGHT][WIDTH], int map_number){
 }
 
 
-vector <pair <int, int>> get_attempt_positions() {
-    vector <pair <int, int>> positions;
+void make_success_map(const mjModel *m, int map_number, const vector <pair <int, int>>& attempt_positions) {
+    chrono::steady_clock::time_point sim_tm_start = chrono::steady_clock::now();
 
-    for (int i = 0; i < HEIGHT; ++i) {
-        for (int j = 0; j < WIDTH; ++j) {
-            positions.emplace_back(i, j);
+    bool success_map[HEIGHT][WIDTH];
+
+    for(int i = 0; i < HEIGHT; ++i){
+        for(int j = 0; j < WIDTH; ++j){
+            success_map[i][j] = false;
         }
     }
-    return positions;
+
+    unsigned long all_attempts = attempt_positions.size();
+
+    for (int iter = 0; iter < all_attempts; ++iter) {
+        chrono::steady_clock::time_point attempt_tm_start = chrono::steady_clock::now();
+        mjData *d = mj_makeData(m);
+        mj_step(m, d);
+
+        double rotation = PI/ROTATIONS * map_number;
+
+        rotate(m, d, rotation);
+        move_to(m, d, attempt_positions[iter]);
+        move_down(m, d);
+        grab(m, d);
+        move_up(m, d);
+
+        if (gripper_holds(m, d)) {
+            success_map[attempt_positions[iter].first][attempt_positions[iter].second] = true;
+            cout << "SUCCESS\n";
+        }
+
+        double attempt_time = get_tm_diff(attempt_tm_start);
+        mj_deleteData(d);
+
+        cout << "map " << map_number + 1 << "/" << ROTATIONS << endl;
+        cout << "attempt " << iter + 1  << "/" << all_attempts << ", time = " << attempt_time << "\n\n";
+    }
+
+    double sim_time = get_tm_diff(sim_tm_start);
+    cout << "Simulation time: " << sim_time << "\n";
+
+    save_success_map(success_map, map_number);
 }
 
 
@@ -182,47 +229,8 @@ int main() {
     
     vector <pair <int, int>> attempt_positions = get_attempt_positions();
 
-    for (int map_number = 0; map_number < 8; map_number++) {
-        chrono::steady_clock::time_point sim_tm_start = chrono::steady_clock::now();
-
-        bool success_map[HEIGHT][WIDTH];
-
-        for(int i = 0; i < HEIGHT; ++i){
-            for(int j = 0; j < WIDTH; ++j){
-                success_map[i][j] = false;
-            }
-        }
-
-        unsigned long all_attempts = attempt_positions.size();
-
-        for (int iter = 0; iter < all_attempts; ++iter) {
-            chrono::steady_clock::time_point attempt_tm_start = chrono::steady_clock::now();
-            mjData *d = mj_makeData(m);
-            mj_step(m, d);
-
-            double rotation = PI/8 * map_number;
-
-            rotate(m, d, rotation);
-            move_to(m, d, attempt_positions[iter]);
-            move_down(m, d);
-            grab(m, d);
-            move_up(m, d);
-
-            if (gripper_holds(m, d)) {
-                success_map[attempt_positions[iter].first][attempt_positions[iter].second] = true;
-                cout << "SUCCESS\n";
-            }
-
-            double attempt_time = get_tm_diff(attempt_tm_start);
-            mj_deleteData(d);
-
-            cout << "attempt " << iter + 1  << "/" << all_attempts << ", time = " << attempt_time << "\n\n";
-        }
-
-        double sim_time = get_tm_diff(sim_tm_start);
-        cout << "Simulation time: " << sim_time << "\n";
-
-        save_success_map(success_map, map_number);
+    for (int map_number = 0; map_number < ROTATIONS; map_number++) {
+        make_success_map(m, map_number, attempt_positions);
     }
     
     mj_deleteModel(m);
