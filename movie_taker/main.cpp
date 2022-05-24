@@ -1,6 +1,8 @@
 #include <algorithm>
 #include <iostream>
 #include <cmath>
+#include <chrono>
+#include <thread>
 
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/highgui.hpp>
@@ -8,8 +10,6 @@
 
 #include "mujoco.h"
 #include "glfw3.h"
-
-#include <FreeImage.h>
 
 using namespace cv;
 using namespace std;
@@ -23,11 +23,12 @@ const int WIDTH = 1000;
 const int HEIGHT = 1000;
 
 #define debug false
+#define SIM_SPEED 20
 
 //////////////////// Color and Coutour Detection  //////////////////////
-// Takes path to existing .png file and returns all relative positions 
-// of element's centers. 
-// 
+// Takes path to existing .png file and returns all relative positions
+// of element's centers.
+//
 // Input  : path to file.
 // Output : list of (x, y) pairs.
 vector<pair<int, int>> getContours(const string &png_path) {
@@ -72,7 +73,7 @@ vector<pair<int, int>> getContours(const string &png_path) {
             int objCor = (int) conPoly[i].size();
 
             // Tries to guess which polygon it is.
-            if (objCor == 3) 
+            if (objCor == 3)
                 objectType = "Triangle";
             else if (objCor == 4) {
                 float aspRatio = (float) boundRect[i].width / (float) boundRect[i].height;
@@ -129,7 +130,7 @@ int get_id(const mjModel *m, int object, const char* name) {
 
 
 void make_png_image(const mjModel *m, mjData *d, const mjvOption *opt, mjvScene *scn, const mjrContext *con,
-                            GLFWwindow *window, mjvCamera *gripper_cam, const mjrRect viewport) {
+                    mjvCamera *gripper_cam, const mjrRect viewport) {
     mj_step(m, d);
     int buffer_size = WIDTH * HEIGHT * 3;
     auto *buffer = new unsigned char[buffer_size];
@@ -151,9 +152,11 @@ void make_png_image(const mjModel *m, mjData *d, const mjvOption *opt, mjvScene 
             std::swap(buffer[x * WIDTH * 3 + y * 3], buffer[x * WIDTH * 3 + 2 + y * 3]);
         }
     }
-    FIBITMAP *image = FreeImage_ConvertFromRawBits(buffer, WIDTH, HEIGHT, 3 * WIDTH, 24, 0x0000FF, 0xFF0000, 0x00FF00,
-                                                   false);
-    FreeImage_Save(FIF_PNG, image, "../myproject/mujoco-grasping-sim/movie_taker/photo.png", 0);
+
+    cv::Mat image = cv::Mat(WIDTH, HEIGHT, CV_8UC3, (unsigned*)buffer);
+    flip(image, image, 0);
+    string path = "../myproject/mujoco-grasping-sim/movie_taker/photo.png";
+    imwrite(path, image);
 
     // Set alpha of both arms back to 1.
     m->geom_rgba[4*arm1 + 3] = 1;
@@ -178,7 +181,7 @@ bool gripper_holds(const mjModel *m, mjData *d) {
     // Could not find a better solution as of now.
     if (debug)
         cout << d->xpos[3 * left_gripper_id ] << " " << d->xpos[3 * left_gripper_id + 1 ] << " " << d->xpos[3 * left_gripper_id + 2 ] << " | " <<
-                d->xpos[3 * right_gripper_id] << " " << d->xpos[3 * right_gripper_id + 1] << " " << d->xpos[3 * right_gripper_id + 2] << "\n"; 
+             d->xpos[3 * right_gripper_id] << " " << d->xpos[3 * right_gripper_id + 1] << " " << d->xpos[3 * right_gripper_id + 2] << "\n";
     return abs(abs(d->xpos[3 * left_gripper_id]) - abs(d->xpos[3 * right_gripper_id])) > 0.02;
 }
 
@@ -231,9 +234,14 @@ void simulate(mjtNum sim_time, const mjModel *m, mjData *d, const mjvOption *opt
     mjtNum sim_start = d->time;
     while (d->time < sim_start + sim_time) {
         mjtNum frame_sim_start = d->time;
+
+        chrono::steady_clock::time_point begin = chrono::steady_clock::now();
         while (d->time - frame_sim_start < 1.0 / 60.0) {
             mj_step(m, d);
         }
+        chrono::steady_clock::time_point end = chrono::steady_clock::now();
+        auto sleep_time = chrono::microseconds(1000000/60/SIM_SPEED) - (end - begin);
+        this_thread::sleep_for(sleep_time);
 
         mjv_updateScene(m, d, opt, nullptr, gripper_cam, mjCAT_ALL, scn);
         mjr_render(viewport, scn, con);
@@ -244,7 +252,7 @@ void simulate(mjtNum sim_time, const mjModel *m, mjData *d, const mjvOption *opt
 
 
 void move_vertical_to_block(const mjModel *m, mjData *d, const mjvOption *opt, mjvScene *scn, const mjrContext *con,
-                            GLFWwindow *window, mjvCamera *gripper_cam, const mjrRect viewport, vector<pair<int, int>> centers) {
+                            GLFWwindow *window, mjvCamera *gripper_cam, const mjrRect viewport, const vector<pair<int, int>>& centers) {
 
     pair<int, int> closest_pixels = get_closest_pixels(centers);
 
@@ -254,7 +262,7 @@ void move_vertical_to_block(const mjModel *m, mjData *d, const mjvOption *opt, m
     d->ctrl[0] = closest_coords.first;
     d->ctrl[1] = closest_coords.second;
 
-    simulate(2, m, d, opt, scn, con, window, gripper_cam, viewport);
+    simulate(1, m, d, opt, scn, con, window, gripper_cam, viewport);
 }
 
 
@@ -287,7 +295,7 @@ void move_up(const mjModel *m, mjData *d, const mjvOption *opt, mjvScene *scn, c
              GLFWwindow *window, mjvCamera *gripper_cam, const mjrRect viewport) {
 
     d->ctrl[2] = 0;
-    simulate(2, m, d, opt, scn, con, window, gripper_cam, viewport);
+    simulate(1, m, d, opt, scn, con, window, gripper_cam, viewport);
 }
 
 
@@ -308,8 +316,12 @@ void release(const mjModel *m, mjData *d, const mjvOption *opt, mjvScene *scn, c
     simulate(2, m, d, opt, scn, con, window, gripper_cam, viewport);
 }
 
+void rotate(mjData *d, double radian_angle) {
 
-int main() {
+    d->ctrl[5] = radian_angle;
+}
+
+void simulate_moving_blocks() {
     char xmlpath[100] = {};
     strcat(xmlpath, project_path);
     strcat(xmlpath, xmlfile);
@@ -345,13 +357,16 @@ int main() {
     mjrRect viewport = {0, 0, 0, 0};
     glfwGetFramebufferSize(window, &viewport.width, &viewport.height);
 
+    int counter = 0;
+
     while (true) {
+        counter++;
         mj_step(m, d);
-        make_png_image(m, d, &opt, &scn, &con, window, &gripper_cam, viewport);
+        make_png_image(m, d, &opt, &scn, &con, &gripper_cam, viewport);
         auto centers = getContours("../myproject/mujoco-grasping-sim/movie_taker/photo.png");
-        if (centers.size() == 0) {
+        if (centers.empty() || counter >= 10) {
             cout << "Moved all elements, shutting down\n";
-            namedWindow("Moved all (seen) elements, shutting down\n"); // or some other indicator that robot finished.
+            //namedWindow("Moved all (seen) elements, shutting down\n"); // or some other indicator that robot finished.
             waitKey();
             break;
         }
@@ -360,6 +375,7 @@ int main() {
         move_down(m, d, &opt, &scn, &con, window, &gripper_cam, viewport);
         grab(m, d, &opt, &scn, &con, window, &gripper_cam, viewport);
         move_up(m, d, &opt, &scn, &con, window, &gripper_cam, viewport);
+        //rotate(m, d, &opt, &scn, &con, window, &gripper_cam, viewport, 1);
 
         // Gripper may sometimes fail to grab elements.
         if (gripper_holds(m, d)) {
@@ -384,6 +400,14 @@ int main() {
 #if defined(__APPLE__) || defined(_WIN32)
     glfwTerminate();
 #endif
+}
 
-    return 1;
+
+int main() {
+    chrono::steady_clock::time_point begin = chrono::steady_clock::now();
+    simulate_moving_blocks();
+    chrono::steady_clock::time_point end = chrono::steady_clock::now();
+
+    cout << "sim time = " << chrono::duration_cast<chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;
+    return 0;
 }
