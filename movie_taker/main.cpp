@@ -23,7 +23,9 @@ const int WIDTH = 1000;
 const int HEIGHT = 1000;
 
 #define debug false
-#define SIM_SPEED 20
+#define RECORD true
+#define SIM_SPEED 5
+#define FPS 30
 
 //////////////////// Color and Coutour Detection  //////////////////////
 // Takes path to existing .png file and returns all relative positions
@@ -129,11 +131,39 @@ int get_id(const mjModel *m, int object, const char* name) {
 }
 
 
+Mat get_frame(const mjModel *m, mjData *d, const mjvOption *opt, mjvScene *scn, const mjrContext *con,
+                   mjvCamera *gripper_cam, const mjrRect viewport) {
+    mj_step(m, d);
+    int buffer_size = WIDTH * HEIGHT * 3;
+    unsigned char buffer[buffer_size];
+
+    mjv_updateScene(m, d, opt, nullptr, gripper_cam, mjCAT_ALL, scn);
+    mjr_render(viewport, scn, con);
+
+    // Takes a picture.
+    mjr_readPixels(buffer, nullptr, viewport, con);
+
+    // Convert from BGR to RGB.
+    for (int x = 0; x < HEIGHT; x++) {
+        for (int y = 0; y < WIDTH; y++) {
+            std::swap(buffer[x * WIDTH * 3 + y * 3], buffer[x * WIDTH * 3 + 2 + y * 3]);
+        }
+    }
+
+    Mat image = cv::Mat(WIDTH, HEIGHT, CV_8UC3, (unsigned*)buffer);
+    flip(image, image, 0);
+    string path = string(project_path) + "photo.png";
+    imwrite(path, image);
+
+    return image;
+}
+
+
 void make_png_image(const mjModel *m, mjData *d, const mjvOption *opt, mjvScene *scn, const mjrContext *con,
                     mjvCamera *gripper_cam, const mjrRect viewport) {
     mj_step(m, d);
     int buffer_size = WIDTH * HEIGHT * 3;
-    auto *buffer = new unsigned char[buffer_size];
+    unsigned char buffer[buffer_size];
 
     // Set alpha of both arms to 0.
     auto arm1 = get_id(m, mjOBJ_GEOM, "arm_left");
@@ -153,9 +183,9 @@ void make_png_image(const mjModel *m, mjData *d, const mjvOption *opt, mjvScene 
         }
     }
 
-    cv::Mat image = cv::Mat(WIDTH, HEIGHT, CV_8UC3, (unsigned*)buffer);
+    Mat image = Mat(WIDTH, HEIGHT, CV_8UC3, (unsigned*)buffer);
     flip(image, image, 0);
-    string path = "../myproject/mujoco-grasping-sim/movie_taker/photo.png";
+    string path = string(project_path) + "photo.png";
     imwrite(path, image);
 
     // Set alpha of both arms back to 1.
@@ -163,8 +193,8 @@ void make_png_image(const mjModel *m, mjData *d, const mjvOption *opt, mjvScene 
     m->geom_rgba[4*arm2 + 3] = 1;
     mjv_updateScene(m, d, opt, nullptr, gripper_cam, mjCAT_ALL, scn);
     mjr_render(viewport, scn, con);
-    delete[] buffer;
 }
+
 
 tuple<mjtNum, mjtNum, mjtNum> get_gripper_cam_coords(const mjModel *m, mjData *d) {
     auto cam_body_id = get_id(m, mjOBJ_BODY, "gripper-cam-body");
@@ -229,18 +259,24 @@ pair<int, int> get_closest_pixels(const vector<pair<int, int>> &vec) {
 
 
 void simulate(mjtNum sim_time, const mjModel *m, mjData *d, const mjvOption *opt, mjvScene *scn, const mjrContext *con,
-              GLFWwindow *window, mjvCamera *gripper_cam, const mjrRect viewport) {
+              GLFWwindow *window, mjvCamera *gripper_cam, const mjrRect viewport, VideoWriter& writer) {
 
     mjtNum sim_start = d->time;
     while (d->time < sim_start + sim_time) {
         mjtNum frame_sim_start = d->time;
 
         chrono::steady_clock::time_point begin = chrono::steady_clock::now();
-        while (d->time - frame_sim_start < 1.0 / 60.0) {
+        while (d->time - frame_sim_start < 1.0 / FPS) {
             mj_step(m, d);
         }
+
+        if (RECORD) {
+            Mat frame = get_frame(m, d, opt, scn, con, gripper_cam, viewport);
+            writer.write(frame);
+        }
+
         chrono::steady_clock::time_point end = chrono::steady_clock::now();
-        auto sleep_time = chrono::microseconds(1000000/60/SIM_SPEED) - (end - begin);
+        auto sleep_time = chrono::microseconds(1000000/FPS/SIM_SPEED) - (end - begin);
         this_thread::sleep_for(sleep_time);
 
         mjv_updateScene(m, d, opt, nullptr, gripper_cam, mjCAT_ALL, scn);
@@ -252,7 +288,8 @@ void simulate(mjtNum sim_time, const mjModel *m, mjData *d, const mjvOption *opt
 
 
 void move_vertical_to_block(const mjModel *m, mjData *d, const mjvOption *opt, mjvScene *scn, const mjrContext *con,
-                            GLFWwindow *window, mjvCamera *gripper_cam, const mjrRect viewport, const vector<pair<int, int>>& centers) {
+                            GLFWwindow *window, mjvCamera *gripper_cam, const mjrRect viewport,
+                            const vector<pair<int, int>>& centers, VideoWriter& writer) {
 
     pair<int, int> closest_pixels = get_closest_pixels(centers);
 
@@ -262,58 +299,58 @@ void move_vertical_to_block(const mjModel *m, mjData *d, const mjvOption *opt, m
     d->ctrl[0] = closest_coords.first;
     d->ctrl[1] = closest_coords.second;
 
-    simulate(1, m, d, opt, scn, con, window, gripper_cam, viewport);
+    simulate(1, m, d, opt, scn, con, window, gripper_cam, viewport, writer);
 }
 
 
 void move_vertical_to_center(const mjModel *m, mjData *d, const mjvOption *opt, mjvScene *scn, const mjrContext *con,
-                             GLFWwindow *window, mjvCamera *gripper_cam, const mjrRect viewport) {
+                             GLFWwindow *window, mjvCamera *gripper_cam, const mjrRect viewport, VideoWriter& writer) {
 
     d->ctrl[0] = 0;
     d->ctrl[1] = 0;
-    simulate(4, m, d, opt, scn, con, window, gripper_cam, viewport);
+    simulate(4, m, d, opt, scn, con, window, gripper_cam, viewport, writer);
 }
 
 
 void move_vertical_to_container(const mjModel *m, mjData *d, const mjvOption *opt, mjvScene *scn, const mjrContext *con,
-                                GLFWwindow *window, mjvCamera *gripper_cam, const mjrRect viewport) {
+                                GLFWwindow *window, mjvCamera *gripper_cam, const mjrRect viewport, VideoWriter& writer) {
 
     d->ctrl[0] = 5;
     d->ctrl[1] = 5;
-    simulate(4, m, d, opt, scn, con, window, gripper_cam, viewport);
+    simulate(4, m, d, opt, scn, con, window, gripper_cam, viewport, writer);
 }
 
 
 void move_down(const mjModel *m, mjData *d, const mjvOption *opt, mjvScene *scn, const mjrContext *con,
-               GLFWwindow *window, mjvCamera *gripper_cam, const mjrRect viewport) {
+               GLFWwindow *window, mjvCamera *gripper_cam, const mjrRect viewport, VideoWriter& writer) {
     d->ctrl[2] = -3.5;
-    simulate(2, m, d, opt, scn, con, window, gripper_cam, viewport);
+    simulate(2, m, d, opt, scn, con, window, gripper_cam, viewport, writer);
 }
 
 
 void move_up(const mjModel *m, mjData *d, const mjvOption *opt, mjvScene *scn, const mjrContext *con,
-             GLFWwindow *window, mjvCamera *gripper_cam, const mjrRect viewport) {
+             GLFWwindow *window, mjvCamera *gripper_cam, const mjrRect viewport, VideoWriter& writer) {
 
     d->ctrl[2] = 0;
-    simulate(1, m, d, opt, scn, con, window, gripper_cam, viewport);
+    simulate(1, m, d, opt, scn, con, window, gripper_cam, viewport, writer);
 }
 
 
 void grab(const mjModel *m, mjData *d, const mjvOption *opt, mjvScene *scn, const mjrContext *con,
-          GLFWwindow *window, mjvCamera *gripper_cam, const mjrRect viewport) {
+          GLFWwindow *window, mjvCamera *gripper_cam, const mjrRect viewport, VideoWriter& writer) {
 
     d->ctrl[3] = 0.5;
     d->ctrl[4] = 0.5;
-    simulate(2, m, d, opt, scn, con, window, gripper_cam, viewport);
+    simulate(2, m, d, opt, scn, con, window, gripper_cam, viewport, writer);
 }
 
 
 void release(const mjModel *m, mjData *d, const mjvOption *opt, mjvScene *scn, const mjrContext *con,
-             GLFWwindow *window, mjvCamera *gripper_cam, const mjrRect viewport) {
+             GLFWwindow *window, mjvCamera *gripper_cam, const mjrRect viewport, VideoWriter& writer) {
 
     d->ctrl[3] = 0;
     d->ctrl[4] = 0;
-    simulate(2, m, d, opt, scn, con, window, gripper_cam, viewport);
+    simulate(2, m, d, opt, scn, con, window, gripper_cam, viewport, writer);
 }
 
 void rotate(mjData *d, double radian_angle) {
@@ -357,33 +394,45 @@ void simulate_moving_blocks() {
     mjrRect viewport = {0, 0, 0, 0};
     glfwGetFramebufferSize(window, &viewport.width, &viewport.height);
 
+    mj_step(m, d);
+    Mat frame = get_frame(m, d, &opt, &scn, &con, &gripper_cam, viewport);
+
+    VideoWriter writer;
+    int codec = VideoWriter::fourcc('M', 'J', 'P', 'G');
+    string filename = string(project_path) + "recording.avi";
+    writer.open(filename, codec, FPS*SIM_SPEED, frame.size(), true);
+    if (!writer.isOpened()) {
+        cerr << "Could not open the output video file for write\n";
+        exit(-1);
+    }
+
     int counter = 0;
 
     while (true) {
         counter++;
         mj_step(m, d);
         make_png_image(m, d, &opt, &scn, &con, &gripper_cam, viewport);
-        auto centers = getContours("../myproject/mujoco-grasping-sim/movie_taker/photo.png");
-        if (centers.empty() || counter >= 10) {
+        auto centers = getContours(string(project_path) + "photo.png");
+        if (centers.empty() || counter >= 5) {
             cout << "Moved all elements, shutting down\n";
             //namedWindow("Moved all (seen) elements, shutting down\n"); // or some other indicator that robot finished.
             waitKey();
             break;
         }
 
-        move_vertical_to_block(m, d, &opt, &scn, &con, window, &gripper_cam, viewport, centers);
-        move_down(m, d, &opt, &scn, &con, window, &gripper_cam, viewport);
-        grab(m, d, &opt, &scn, &con, window, &gripper_cam, viewport);
-        move_up(m, d, &opt, &scn, &con, window, &gripper_cam, viewport);
+        move_vertical_to_block(m, d, &opt, &scn, &con, window, &gripper_cam, viewport, centers, writer);
+        move_down(m, d, &opt, &scn, &con, window, &gripper_cam, viewport, writer);
+        grab(m, d, &opt, &scn, &con, window, &gripper_cam, viewport, writer);
+        move_up(m, d, &opt, &scn, &con, window, &gripper_cam, viewport, writer);
         //rotate(m, d, &opt, &scn, &con, window, &gripper_cam, viewport, 1);
 
         // Gripper may sometimes fail to grab elements.
         if (gripper_holds(m, d)) {
-            move_vertical_to_container(m, d, &opt, &scn, &con, window, &gripper_cam, viewport);
+            move_vertical_to_container(m, d, &opt, &scn, &con, window, &gripper_cam, viewport, writer);
         }
 
-        release(m, d, &opt, &scn, &con, window, &gripper_cam, viewport);
-        move_vertical_to_center(m, d, &opt, &scn, &con, window, &gripper_cam, viewport);
+        release(m, d, &opt, &scn, &con, window, &gripper_cam, viewport, writer);
+        move_vertical_to_center(m, d, &opt, &scn, &con, window, &gripper_cam, viewport, writer);
     }
 
     // free visualization storage

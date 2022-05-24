@@ -164,7 +164,7 @@ void save_success_map(const bool arr[HEIGHT][WIDTH], int map_number) {
         }
     }
 
-    string path = "../myproject/mujoco-grasping-sim/map_maker/success_map" + to_string(map_number) + ".png";
+    string path = string(project_path) + "success_map" + to_string(map_number) + ".png";
     imwrite(path, image);
 }
 
