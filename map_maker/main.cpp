@@ -3,6 +3,7 @@
 #include <cmath>
 #include <chrono>
 
+
 #include <opencv2/imgcodecs.hpp>
 
 #include "mujoco.h"
@@ -12,7 +13,7 @@ using namespace std;
 
 #define PI 3.14159265358979323846
 
-const char project_path[] = "../myproject/mujoco-grasping-sim/map_maker/";
+const char project_path[] = "";
 const char xmlfile[] = "gripper.xml";
 
 #define WIDTH 10

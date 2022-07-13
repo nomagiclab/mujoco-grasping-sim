@@ -15,7 +15,7 @@ include_directories(
 
 link_directories($ENV{MUJOCO_PATH}/bin)
 
-file(GLOB LIB_MUJOCO $ENV{MUJOCO_PATH}/bin/libmujoco[0-9][0-9][0-9].so)
+file(GLOB LIB_MUJOCO $ENV{MUJOCO_PATH}/lib/libmujoco.so)
 
 ##Showing mujoco library found
 message(STATUS "MuJoCo lib: " ${LIB_MUJOCO})
