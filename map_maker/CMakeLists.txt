@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.21)
 project(mujoco_grasping_sim)
 
 set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_CLANG_TIDY clang-tidy -checks=-*,readability-*)
+
 
 find_package(OpenGL REQUIRED)
 find_package(GLEW REQUIRED)
